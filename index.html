@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Fit Frenzy - Arcade Fitness Game</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        /* ========== ESTILOS (sin cambios) ========== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            -webkit-touch-callout: none;
+        }
+        body {
+            background-color: #0a0a1a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+            color: #f0f0f0;
+            font-family: 'Press Start 2P', monospace;
+        }
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        canvas {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #0f0f25;
+            display: block;
+            image-rendering: crisp-edges;
+            touch-action: none;
+            box-shadow: 0 0 0 2px rgba(58,110,165,0.3);
+            z-index: 5;
+        }
+        #ui {
+            position: absolute;
+            top: 12px;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: 0 12px;
+            pointer-events: none;
+            z-index: 10;
+            gap: 8px;
+        }
+        #scoreContainer, #centerUI, #healthContainer {
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 6px 12px;
+            border-radius: 12px;
+            border: 2px solid #3a6ea5;
+            backdrop-filter: blur(8px);
+            min-width: 80px;
+            text-align: center;
+            font-family: 'Press Start 2P', monospace;
+            font-size: 0.7rem;
+        }
+        #scoreLabel, #intensityLabel, #timeLabel, #healthLabel {
+            font-size: 8px;
+            letter-spacing: 1px;
+        }
+        #scoreLabel { color: #64c864; }
+        #intensityLabel { color: #ffd700; }
+        #timeLabel { color: #40b4dc; }
+        #healthLabel { color: #dc4646; margin-bottom: 4px; }
+        #score, #intensity, #time {
+            font-weight: bold;
+            color: white;
+            font-size: 1rem;
+        }
+        #score { text-shadow: 0 0 5px #64c864; }
+        #intensity { color: #ffd700; text-shadow: 0 0 5px #ffd700; }
+        #healthBar {
+            width: 90px;
+            height: 12px;
+            background-color: #2a2a3a;
+            border-radius: 20px;
+            overflow: hidden;
+            margin-top: 4px;
+        }
+        #healthFill {
+            height: 100%;
+            width: 100%;
+            background: linear-gradient(90deg, #dc4646, #ffaa66, #64c864);
+            border-radius: 20px;
+            transition: width 0.2s ease;
+        }
+        #healthText {
+            font-size: 8px;
+            font-weight: bold;
+            margin-top: 2px;
+        }
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
+            background-color: rgba(10, 10, 26, 0.98);
+            backdrop-filter: blur(8px);
+            z-index: 20;
+            text-align: center;
+            padding: 20px;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
+            font-family: 'Press Start 2P', monospace;
+        }
+        .screen.hidden { display: none; }
+        button {
+            background: linear-gradient(145deg, #3a6ea5, #2d5685);
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            margin: 8px;
+            border-radius: 60px;
+            font-size: 0.8rem;
+            font-family: 'Press Start 2P', monospace;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.1s linear;
+            min-width: 180px;
+            box-shadow: 0 5px 0 #1a2e46;
+            touch-action: manipulation;
+        }
+        button:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px 0 #1a2e46;
+        }
+        .boost-indicator {
+            display: none;
+        }
+        .damage-effect {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(220,0,0,0.3);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.1s;
+            z-index: 6;
+        }
+        .health-up-effect {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(100,200,100,0.3);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 6;
+        }
+        .record-container {
+            background: rgba(0,0,0,0.7);
+            border-radius: 20px;
+            padding: 12px 24px;
+            margin: 16px;
+            border: 1px solid gold;
+        }
+        .pixel-menu {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 100;
+            background: #0b1e3c;
+            overflow: hidden;
+            font-family: 'Press Start 2P', monospace;
+        }
+        .pixel-menu.hidden { display: none; }
+        .menu-background {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: url("img/fondo.jpeg") no-repeat center center / cover;
+            z-index: 0;
+        }
+        .food-rain {
+            position: absolute;
+            pointer-events: none;
+            z-index: 2;
+            will-change: transform;
+            animation: fall linear infinite;
+        }
+        @keyframes fall {
+            0% { transform: translateY(-100px); opacity: 1; }
+            100% { transform: translateY(110vh); opacity: 0.8; }
+        }
+        .menu-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(1.2);
+            text-align: center;
+            z-index: 20;
+            width: 90%;
+        }
+        .title {
+            font-size: 30px;
+            color: white;
+            margin-bottom: 60px;
+            letter-spacing: 4px;
+            text-shadow: 6px 0 #000, 0 6px #000, 6px 6px #000, 12px 12px #000;
+        }
+        .menu-button {
+            display: block;
+            margin: 25px auto;
+            padding: 18px 35px;
+            font-size: 10px;
+            color: white;
+            background: #1d4ed8;
+            border: 6px solid black;
+            box-shadow: 6px 0 black, 0 6px black, 12px 12px black;
+            cursor: pointer;
+            font-family: 'Press Start 2P', monospace;
+            text-align: center;
+            width: 220px;
+        }
+        .menu-button:hover { background: #3b82f6; }
+        .menu-button:active {
+            transform: translate(6px,6px);
+            box-shadow: 2px 0 black, 0 2px black;
+        }
+        .options-panel {
+            background: rgba(0,0,0,0.9);
+            border-radius: 20px;
+            padding: 20px;
+            width: 90%;
+            max-width: 500px;
+            margin: 20px auto;
+        }
+        .option-row { margin: 20px 0; text-align: left; }
+        .option-row label { display: block; margin-bottom: 10px; font-size: 12px; }
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+            background: #3a6ea5;
+            height: 4px;
+            border-radius: 5px;
+        }
+        .toggle-switch {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 15px 0;
+        }
+        .toggle-switch button {
+            min-width: 100px;
+            padding: 8px 16px;
+            font-size: 10px;
+            margin: 0;
+        }
+        .language-selector {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 10px;
+        }
+        .lang-btn {
+            min-width: 80px;
+            padding: 8px 12px;
+            font-size: 10px;
+            background: #2d5685;
+        }
+        .lang-btn.active {
+            background: #1d4ed8;
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.3);
+        }
+        @media (max-width: 700px), (max-height: 700px) {
+            .title { font-size: 20px; margin-bottom: 30px; }
+            .menu-button { padding: 12px 20px; font-size: 8px; width: 180px; margin: 15px auto; }
+            .food-rain { width: 30px; height: 30px; }
+            .options-panel { padding: 15px; }
+            .option-row label { font-size: 10px; }
+        }
+        #touchControls { display: none; }
+        .loader {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: black;
+            color: white;
+            padding: 20px;
+            z-index: 200;
+            font-family: 'Press Start 2P', monospace;
+            text-align: center;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+<div id="gameContainer">
+    <canvas id="gameCanvas"></canvas>
+    <div id="damageEffect" class="damage-effect"></div>
+    <div id="healthUpEffect" class="health-up-effect"></div>
+    <div id="ui" style="display: none;">
+        <div id="scoreContainer"><div id="scoreLabel">PUNTOS</div><div id="score">0</div></div>
+        <div id="centerUI">
+            <div id="intensityLabel">INTENSIDAD</div>
+            <div id="intensity">1.0x</div>
+            <div id="timeLabel">TIEMPO</div>
+            <div id="time">00:00</div>
+        </div>
+        <div id="healthContainer">
+            <div id="healthLabel">SALUD</div>
+            <div id="healthBar"><div id="healthFill" style="width:100%"></div></div>
+            <div id="healthText">100%</div>
+        </div>
+    </div>
+    <div id="boostIndicator" class="boost-indicator"></div>
+    <div id="pixelMenu" class="pixel-menu">
+        <div class="menu-background"></div>
+        <div class="menu-content">
+            <div class="title" id="menuTitle">FIT FRENZY</div>
+            <button class="menu-button" id="menuJugar">JUGAR</button>
+            <button class="menu-button" id="menuOpciones">OPCIONES</button>
+            <button class="menu-button" id="menuSalir">SALIR</button>
+        </div>
+    </div>
+    <div id="optionsScreen" class="screen hidden">
+        <h2 id="optionsTitle">OPCIONES</h2>
+        <div class="options-panel">
+            <div class="option-row">
+                <label id="musicVolLabel">Volumen Música: <span id="musicVolValue">50</span>%</label>
+                <input type="range" id="musicVolume" min="0" max="100" value="50">
+            </div>
+            <div class="option-row">
+                <label id="effectsVolLabel">Volumen Efectos: <span id="effectsVolValue">50</span>%</label>
+                <input type="range" id="effectsVolume" min="0" max="100" value="50">
+            </div>
+            <div class="toggle-switch">
+                <span id="muteAllLabel">Silenciar todo</span>
+                <button id="muteAllBtn" style="background:#aa2e2e;">🔇 SILENCIAR</button>
+            </div>
+            <div class="option-row">
+                <label id="languageLabel">Idioma / Language</label>
+                <div class="language-selector">
+                    <button id="langEs" class="lang-btn active">ESPAÑOL</button>
+                    <button id="langEn" class="lang-btn">ENGLISH</button>
+                </div>
+            </div>
+            <button id="closeOptionsBtn" style="margin-top: 20px;">VOLVER</button>
+        </div>
+    </div>
+    <div id="pauseScreen" class="screen hidden">
+        <h1 id="pauseTitle">⏸ PAUSA</h1>
+        <button id="resumeButton">CONTINUAR</button>
+        <button id="restartButton">REINICIAR</button>
+        <button id="menuButton">MENÚ</button>
+    </div>
+    <div id="gameOverScreen" class="screen hidden">
+        <h1 id="gameOverTitle">💀 GAME OVER 💀</h1>
+        <p><span id="finalScoreLabel">Puntuación:</span> <span id="finalScore">0</span></p>
+        <p><span id="finalIntensityLabel">Intensidad:</span> <span id="finalIntensity">1.0x</span></p>
+        <p><span id="finalTimeLabel">Tiempo:</span> <span id="finalTime">00:00</span></p>
+        <div class="record-container" id="recordContainer">
+            <div id="bestScoreLabel">🏆 MEJOR PUNTUACIÓN 🏆</div>
+            <div id="recordScore" style="font-size: 1.8rem;">0</div>
+            <div id="recordDetails"></div>
+        </div>
+        <div id="newRecordMessage" style="display: none; background: gold; color:black; padding: 8px; border-radius: 20px; margin: 8px;">🎉 NUEVO RÉCORD 🎉</div>
+        <button id="playAgainButton">JUGAR DE NUEVO</button>
+        <button id="menuButton2">MENÚ PRINCIPAL</button>
+    </div>
+</div>
+
+<script>
+    // ======================== SISTEMA DE SONIDOS (Web Audio API) ========================
+    let audioCtx = null, bgMusicGain = null, effectsGain = null, isAudioAllowed = false, musicInterval = null;
+    let musicVolume = 0.5, effectsVolume = 0.5, muted = false;
+    
+    function loadAudioPrefs() {
+        try {
+            const savedMusic = localStorage.getItem('fitFrenzy_musicVol');
+            const savedEffects = localStorage.getItem('fitFrenzy_effectsVol');
+            const savedMuted = localStorage.getItem('fitFrenzy_muted');
+            if (savedMusic !== null) musicVolume = parseFloat(savedMusic);
+            if (savedEffects !== null) effectsVolume = parseFloat(savedEffects);
+            if (savedMuted !== null) muted = savedMuted === 'true';
+            document.getElementById('musicVolume').value = musicVolume * 100;
+            document.getElementById('effectsVolume').value = effectsVolume * 100;
+            document.getElementById('musicVolValue').textContent = Math.round(musicVolume * 100);
+            document.getElementById('effectsVolValue').textContent = Math.round(effectsVolume * 100);
+            if (muted) {
+                document.getElementById('muteAllBtn').textContent = '🔊 ACTIVAR';
+                document.getElementById('muteAllBtn').style.background = '#2d5685';
+            } else {
+                document.getElementById('muteAllBtn').textContent = '🔇 SILENCIAR';
+                document.getElementById('muteAllBtn').style.background = '#aa2e2e';
+            }
+        } catch(e) {}
+    }
+    function saveAudioPrefs() {
+        localStorage.setItem('fitFrenzy_musicVol', musicVolume);
+        localStorage.setItem('fitFrenzy_effectsVol', effectsVolume);
+        localStorage.setItem('fitFrenzy_muted', muted);
+        if (bgMusicGain) bgMusicGain.gain.value = muted ? 0 : musicVolume;
+        if (effectsGain) effectsGain.gain.value = muted ? 0 : effectsVolume;
+    }
+    function initAudio() {
+        if (audioCtx) return;
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        bgMusicGain = audioCtx.createGain();
+        effectsGain = audioCtx.createGain();
+        bgMusicGain.gain.value = muted ? 0 : musicVolume;
+        effectsGain.gain.value = muted ? 0 : effectsVolume;
+        bgMusicGain.connect(audioCtx.destination);
+        effectsGain.connect(audioCtx.destination);
+    }
+    async function ensureAudioContext() {
+        if (!audioCtx) initAudio();
+        if (audioCtx.state === 'suspended') await audioCtx.resume();
+        isAudioAllowed = true;
+    }
+    function playClickSound() {
+        if (!audioCtx || !isAudioAllowed) return;
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = 880;
+        gain.gain.value = 0.2;
+        osc.connect(gain);
+        gain.connect(effectsGain);
+        osc.start();
+        gain.gain.exponentialRampToValueAtTime(0.00001, now + 0.2);
+        osc.stop(now + 0.2);
+    }
+    function playStartSound() {
+        if (!audioCtx || !isAudioAllowed) return;
+        const now = audioCtx.currentTime;
+        const osc1 = audioCtx.createOscillator();
+        const gain1 = audioCtx.createGain();
+        osc1.type = 'square';
+        osc1.frequency.value = 523.25;
+        gain1.gain.value = 0.15;
+        osc1.connect(gain1);
+        gain1.connect(effectsGain);
+        osc1.start();
+        gain1.gain.exponentialRampToValueAtTime(0.00001, now + 0.3);
+        osc1.stop(now + 0.3);
+        const osc2 = audioCtx.createOscillator();
+        const gain2 = audioCtx.createGain();
+        osc2.type = 'square';
+        osc2.frequency.value = 659.25;
+        gain2.gain.value = 0.15;
+        osc2.connect(gain2);
+        gain2.connect(effectsGain);
+        osc2.start(now + 0.15);
+        gain2.gain.exponentialRampToValueAtTime(0.00001, now + 0.45);
+        osc2.stop(now + 0.45);
+    }
+    function playGoodCollectSound() {
+        if (!audioCtx || !isAudioAllowed) return;
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = 1046.50;
+        gain.gain.value = 0.12;
+        osc.connect(gain);
+        gain.connect(effectsGain);
+        osc.start();
+        gain.gain.exponentialRampToValueAtTime(0.00001, now + 0.15);
+        osc.stop(now + 0.15);
+    }
+    function playDamageSound() {
+        if (!audioCtx || !isAudioAllowed) return;
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.value = 220;
+        gain.gain.value = 0.2;
+        osc.connect(gain);
+        gain.connect(effectsGain);
+        osc.start();
+        gain.gain.exponentialRampToValueAtTime(0.00001, now + 0.25);
+        osc.stop(now + 0.25);
+    }
+    function playHealthUpSound() {
+        if (!audioCtx || !isAudioAllowed) return;
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = 1318.52; // Mi6
+        gain.gain.value = 0.1;
+        osc.connect(gain);
+        gain.connect(effectsGain);
+        osc.start();
+        gain.gain.exponentialRampToValueAtTime(0.00001, now + 0.2);
+        osc.stop(now + 0.2);
+    }
+    function playGameOverSound() {
+        if (!audioCtx || !isAudioAllowed) return;
+        const now = audioCtx.currentTime;
+        for (let i = 0; i < 3; i++) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.value = 440 - i * 100;
+            gain.gain.value = 0.15;
+            osc.connect(gain);
+            gain.connect(effectsGain);
+            osc.start(now + i * 0.1);
+            gain.gain.exponentialRampToValueAtTime(0.00001, now + i * 0.1 + 0.3);
+            osc.stop(now + i * 0.1 + 0.3);
+        }
+    }
+    function startBackgroundMusic() {
+        if (!audioCtx || !isAudioAllowed) return;
+        stopBackgroundMusic();
+        let step = 0;
+        const notes = [261.63, 293.66, 329.63, 261.63, 261.63, 293.66, 329.63, 261.63];
+        musicInterval = setInterval(() => {
+            if (gameState !== 'playing') return;
+            if (!audioCtx || audioCtx.state !== 'running') return;
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.value = notes[step % notes.length];
+            gain.gain.value = 0.07;
+            osc.connect(gain);
+            gain.connect(bgMusicGain);
+            osc.start();
+            gain.gain.exponentialRampToValueAtTime(0.00001, now + 0.4);
+            osc.stop(now + 0.4);
+            step++;
+        }, 500);
+    }
+    function stopBackgroundMusic() {
+        if (musicInterval) { clearInterval(musicInterval); musicInterval = null; }
+    }
+    function enableAudioAndPlayClick(e) {
+        if (isAudioAllowed) return;
+        initAudio();
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume().then(() => { isAudioAllowed = true; playClickSound(); });
+        } else { isAudioAllowed = true; playClickSound(); }
+        document.removeEventListener('click', enableAudioAndPlayClick);
+        document.removeEventListener('touchstart', enableAudioAndPlayClick);
+    }
+    document.addEventListener('click', enableAudioAndPlayClick);
+    document.addEventListener('touchstart', enableAudioAndPlayClick);
+    
+    // ======================== LISTAS DE ALIMENTOS CON IMÁGENES MÁS GRANDES ========================
+    const GOOD_FOODS = [
+        { id: 'creatina', name: 'Creatina', value: 20, img: 'img/Creatina.png', size: 48 },
+        { id: 'proteina', name: 'Proteína', value: 15, img: 'img/Proteina.png', size: 48 },
+        { id: 'barra', name: 'Barra energética', value: 12, img: 'img/Barra_energetica.png', size: 48 },
+        { id: 'lechuga', name: 'Lechuga', value: 8, img: 'img/Lechuga.png', size: 48 },
+        { id: 'ensalada', name: 'Ensalada', value: 12, img: 'img/Ensalada.png', size: 48 },
+        { id: 'manzana', name: 'Manzana', value: 10, img: 'img/Manzana.png', size: 48 },
+        { id: 'agua', name: 'Agua', value: 5, img: 'img/Agua.png', size: 48 },
+        { id: 'brocoli', name: 'Brócoli', value: 10, img: 'img/Brocoli.png', size: 48 },
+        { id: 'pollo', name: 'Pollo', value: 20, img: 'img/Pollo.png', size: 48 }
+    ];
+    const BAD_FOODS = [
+        { id: 'soda', name: 'Soda', value: -15, img: 'img/Soda.png', size: 48 },
+        { id: 'tacos', name: 'Tacos', value: -20, img: 'img/Tacos.png', size: 48 },
+        { id: 'pizza', name: 'Pizza', value: -25, img: 'img/Pizza.png', size: 48 },
+        { id: 'hotdog', name: 'Hot dog', value: -18, img: 'img/Hotdog.png', size: 48 },
+        { id: 'dona', name: 'Dona', value: -12, img: 'img/Dona.png', size: 48 },
+        { id: 'helado', name: 'Helado', value: -18, img: 'img/Helado.png', size: 48 },
+        { id: 'papas', name: 'Papas fritas', value: -12, img: 'img/Papas_fritas.png', size: 48 },
+        { id: 'galletas', name: 'Galletas', value: -10, img: 'img/Galletas.png', size: 48 },
+        { id: 'pastel', name: 'Pastel', value: -20, img: 'img/Pastel.png', size: 48 }
+    ];
+    const ALL_FOODS = [...GOOD_FOODS, ...BAD_FOODS];
+    
+    // Precarga de imágenes
+    function preloadImages() {
+        const promises = ALL_FOODS.map(food => {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => resolve(true);
+                img.onerror = () => {
+                    console.warn(`Imagen no encontrada: ${food.img}`);
+                    resolve(false);
+                };
+                img.src = food.img;
+                food.loadedImg = img;
+            });
+        });
+        return Promise.all(promises);
+    }
+    
+    // ======================== TRADUCCIONES ========================
+    let currentLang = 'es';
+    const texts = {
+        es: { menuTitle: 'FIT FRENZY', jugar: 'JUGAR', opciones: 'OPCIONES', salir: 'SALIR', optionsTitle: 'OPCIONES', musicVol: 'Volumen Música', effectsVol: 'Volumen Efectos', muteAll: 'Silenciar todo', muteBtn: '🔇 SILENCIAR', unmuteBtn: '🔊 ACTIVAR', language: 'Idioma / Language', back: 'VOLVER', pauseTitle: '⏸ PAUSA', resume: 'CONTINUAR', restart: 'REINICIAR', menu: 'MENÚ', gameOverTitle: '💀 GAME OVER 💀', finalScore: 'Puntuación:', finalIntensity: 'Intensidad:', finalTime: 'Tiempo:', bestScore: '🏆 MEJOR PUNTUACIÓN 🏆', newRecord: '🎉 NUEVO RÉCORD 🎉', playAgain: 'JUGAR DE NUEVO', mainMenu: 'MENÚ PRINCIPAL', score: 'PUNTOS', intensity: 'INTENSIDAD', time: 'TIEMPO', health: 'SALUD', boost: '' },
+        en: { menuTitle: 'FIT FRENZY', jugar: 'PLAY', opciones: 'OPTIONS', salir: 'EXIT', optionsTitle: 'OPTIONS', musicVol: 'Music Volume', effectsVol: 'Effects Volume', muteAll: 'Mute all', muteBtn: '🔇 MUTE', unmuteBtn: '🔊 UNMUTE', language: 'Language', back: 'BACK', pauseTitle: '⏸ PAUSED', resume: 'RESUME', restart: 'RESTART', menu: 'MENU', gameOverTitle: '💀 GAME OVER 💀', finalScore: 'Score:', finalIntensity: 'Intensity:', finalTime: 'Time:', bestScore: '🏆 BEST SCORE 🏆', newRecord: '🎉 NEW RECORD 🎉', playAgain: 'PLAY AGAIN', mainMenu: 'MAIN MENU', score: 'SCORE', intensity: 'INTENSITY', time: 'TIME', health: 'HEALTH', boost: '' }
+    };
+    function updateUITexts() {
+        const t = texts[currentLang];
+        document.getElementById('menuTitle').innerText = t.menuTitle;
+        document.getElementById('menuJugar').innerText = t.jugar;
+        document.getElementById('menuOpciones').innerText = t.opciones;
+        document.getElementById('menuSalir').innerText = t.salir;
+        document.getElementById('optionsTitle').innerText = t.optionsTitle;
+        document.getElementById('musicVolLabel').innerHTML = `${t.musicVol}: <span id="musicVolValue">${Math.round(musicVolume*100)}</span>%`;
+        document.getElementById('effectsVolLabel').innerHTML = `${t.effectsVol}: <span id="effectsVolValue">${Math.round(effectsVolume*100)}</span>%`;
+        document.getElementById('muteAllLabel').innerText = t.muteAll;
+        document.getElementById('muteAllBtn').innerText = muted ? t.unmuteBtn : t.muteBtn;
+        document.getElementById('languageLabel').innerText = t.language;
+        document.getElementById('closeOptionsBtn').innerText = t.back;
+        document.getElementById('pauseTitle').innerText = t.pauseTitle;
+        document.getElementById('resumeButton').innerText = t.resume;
+        document.getElementById('restartButton').innerText = t.restart;
+        document.getElementById('menuButton').innerText = t.menu;
+        document.getElementById('gameOverTitle').innerText = t.gameOverTitle;
+        document.getElementById('finalScoreLabel').innerText = t.finalScore;
+        document.getElementById('finalIntensityLabel').innerText = t.finalIntensity;
+        document.getElementById('finalTimeLabel').innerText = t.finalTime;
+        document.getElementById('bestScoreLabel').innerText = t.bestScore;
+        document.getElementById('playAgainButton').innerText = t.playAgain;
+        document.getElementById('menuButton2').innerText = t.mainMenu;
+        document.getElementById('scoreLabel').innerText = t.score;
+        document.getElementById('intensityLabel').innerText = t.intensity;
+        document.getElementById('timeLabel').innerText = t.time;
+        document.getElementById('healthLabel').innerText = t.health;
+    }
+    function setLanguage(lang) {
+        currentLang = lang;
+        localStorage.setItem('fitFrenzy_lang', lang);
+        updateUITexts();
+        document.getElementById('langEs').classList.toggle('active', lang === 'es');
+        document.getElementById('langEn').classList.toggle('active', lang === 'en');
+    }
+    function loadLanguage() {
+        const saved = localStorage.getItem('fitFrenzy_lang');
+        if (saved === 'en') setLanguage('en');
+        else setLanguage('es');
+    }
+    
+    // ======================== CONFIGURACIÓN RESPONSIVA ========================
+    let canvas, ctx;
+    let gameWidth = 800, gameHeight = 1000;
+    function updateCanvasSize() {
+        const maxW = window.innerWidth, maxH = window.innerHeight;
+        const targetRatio = 800/1000;
+        let newWidth = maxW, newHeight = newWidth / targetRatio;
+        if(newHeight > maxH) { newHeight = maxH; newWidth = newHeight * targetRatio; }
+        gameWidth = Math.floor(newWidth); gameHeight = Math.floor(newHeight);
+        canvas.width = gameWidth; canvas.height = gameHeight;
+        canvas.style.width = `${gameWidth}px`; canvas.style.height = `${gameHeight}px`;
+        if(player) {
+            player.x = Math.min(Math.max(player.x, 0), gameWidth - player.width);
+            player.y = gameHeight - 90;
+        }
+    }
+    
+    // ======================== VARIABLES DEL JUEGO ========================
+    let gameState = 'menu';
+    let player = {
+        x: 0, y: 0, width: 70, height: 35, speed: 7, score: 0, health: 100, maxHealth: 100,
+        update() { },
+        move(dir) {
+            let step = this.speed;
+            if(dir === 'left') this.x -= step;
+            if(dir === 'right') this.x += step;
+            this.x = Math.max(0, Math.min(gameWidth - this.width, this.x));
+        },
+        getBounds() { return { x: this.x-10, y: this.y-10, width: this.width+20, height: this.height+20 }; },
+        takeDamage(amt) { 
+            this.health = Math.max(0, this.health - Math.abs(amt)); 
+            showDamage(); 
+        },
+        heal(amount) {
+            this.health = Math.min(this.maxHealth, this.health + amount);
+            showHealthUpEffect();
+        },
+        reset() {
+            this.x = gameWidth/2 - this.width/2;
+            this.y = gameHeight - 90;
+            this.score = 0;
+            this.health = this.maxHealth;
+        }
+    };
+    let fallingObjects = [], spawnCounter = 0, spawnRate = 70, gameTimer = 0, gameIntensity = 1.0, objectsPerSpawn = 1;
+    let highScore = { score: 0, intensity: 1.0, time: 0 };
+    let keys = { ArrowLeft: false, ArrowRight: false };
+    let nextHealthThreshold = 100; // cada 100 puntos, sube 5 de vida
+    
+    const scoreEl = document.getElementById('score'), intensityEl = document.getElementById('intensity'), timeEl = document.getElementById('time');
+    const healthFill = document.getElementById('healthFill'), healthText = document.getElementById('healthText');
+    const damageOverlay = document.getElementById('damageEffect'), healthUpOverlay = document.getElementById('healthUpEffect'), uiContainer = document.getElementById('ui');
+    function showDamage() { damageOverlay.style.opacity = '0.5'; setTimeout(()=> damageOverlay.style.opacity='0', 150); }
+    function showHealthUpEffect() { 
+        healthUpOverlay.style.opacity = '0.5'; 
+        setTimeout(()=> healthUpOverlay.style.opacity='0', 300);
+        playHealthUpSound();
+    }
+    function updateUI() {
+        if(gameState !== 'playing') return;
+        scoreEl.textContent = player.score;
+        let percent = (player.health/player.maxHealth)*100;
+        healthFill.style.width = `${percent}%`;
+        healthText.textContent = `${Math.floor(percent)}%`;
+        let mins = Math.floor(gameTimer/3600), secs = Math.floor((gameTimer%3600)/60);
+        timeEl.textContent = `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
+        intensityEl.textContent = `${gameIntensity.toFixed(1)}x`;
+    }
+    function updateIntensityByScore() {
+        let target = 1.0 + Math.floor(player.score/100)*0.1;
+        if(target > gameIntensity) gameIntensity = Math.min(gameIntensity + 0.002, target);
+        spawnRate = Math.max(38, 70 / gameIntensity);
+        objectsPerSpawn = Math.min(1 + Math.floor(gameIntensity), 3);
+        updateUI();
+    }
+    
+    // ======================== CLASE FallingItem CON TAMAÑO AUMENTADO ========================
+    class FallingItem {
+        constructor(isGood) {
+            this.isGood = isGood;
+            const list = isGood ? GOOD_FOODS : BAD_FOODS;
+            const data = list[Math.floor(Math.random() * list.length)];
+            this.name = data.name;
+            this.value = data.value;
+            this.size = data.size + Math.random() * 10; // entre 48 y 58 píxeles
+            this.image = data.loadedImg || new Image();
+            if (!data.loadedImg) this.image.src = data.img;
+            this.x = Math.random() * (gameWidth - this.size - 20) + 10;
+            this.y = -this.size;
+            this.speedY = (Math.random() * 2.5 + 2) * gameIntensity;
+            this.rot = 0;
+            this.rotSpeed = (Math.random() - 0.5) * 0.1;
+        }
+        update() { this.y += this.speedY; this.rot += this.rotSpeed; }
+        draw(ctx) {
+            ctx.save();
+            ctx.translate(this.x + this.size/2, this.y + this.size/2);
+            ctx.rotate(this.rot);
+            if (this.image.complete && this.image.naturalWidth > 0) {
+                ctx.drawImage(this.image, -this.size/2, -this.size/2, this.size, this.size);
+            } else {
+                // Fallback visual
+                ctx.fillStyle = this.isGood ? '#64c864' : '#dc4646';
+                ctx.fillRect(-this.size/2, -this.size/2, this.size, this.size);
+                ctx.fillStyle = 'white';
+                ctx.font = `${this.size/2}px monospace`;
+                ctx.fillText(this.isGood ? '✓' : '✗', -this.size/4, this.size/4);
+            }
+            ctx.restore();
+        }
+        getBounds() { return { x: this.x, y: this.y, width: this.size, height: this.size }; }
+        isOffscreen() { return this.y > gameHeight + 100; }
+    }
+    
+    function spawnObjects() {
+        let badProb = Math.min(0.25 + gameIntensity * 0.05, 0.55);
+        for(let i=0; i<objectsPerSpawn; i++) {
+            let isGood = Math.random() > badProb;
+            fallingObjects.push(new FallingItem(isGood));
+        }
+    }
+    
+    function updateGame() {
+        if(gameState !== 'playing') return;
+        player.update();
+        if(keys.ArrowLeft) player.move('left');
+        if(keys.ArrowRight) player.move('right');
+        spawnCounter++;
+        if(spawnCounter >= spawnRate) { spawnObjects(); spawnCounter = 0; }
+        updateIntensityByScore();
+        
+        for(let i=0; i<fallingObjects.length; i++) {
+            const obj = fallingObjects[i];
+            obj.update();
+            const bounds = obj.getBounds();
+            const playerBounds = player.getBounds();
+            
+            // Colisión con el jugador
+            if(bounds.x < playerBounds.x+playerBounds.width && bounds.x+bounds.width > playerBounds.x &&
+               bounds.y < playerBounds.y+playerBounds.height && bounds.y+bounds.height > playerBounds.y) {
+                if(obj.isGood) {
+                    player.score += obj.value;
+                    playGoodCollectSound();
+                    // Cada 100 puntos, aumentar vida en 5
+                    while (player.score >= nextHealthThreshold) {
+                        player.heal(5);
+                        nextHealthThreshold += 100;
+                    }
+                } else {
+                    player.takeDamage(obj.value); // obj.value es negativo, pero takeDamage usa Math.abs
+                    playDamageSound();
+                    if(player.health <= 0) gameOver();
+                }
+                fallingObjects.splice(i,1);
+                i--;
+                continue;
+            }
+            
+            // Objeto fuera de pantalla
+            if(obj.isOffscreen()) {
+                // Si es un objeto bueno y se pierde, restar 2 de salud
+                if(obj.isGood) {
+                    player.takeDamage(2);
+                    playDamageSound();
+                    if(player.health <= 0) gameOver();
+                }
+                fallingObjects.splice(i,1);
+                i--;
+                continue;
+            }
+        }
+        gameTimer++;
+        updateUI();
+        if(player.health <= 0) gameOver();
+    }
+    
+    function gameOver() {
+        gameState = 'gameover';
+        playGameOverSound();
+        stopBackgroundMusic();
+        const finalScore = player.score, finalIntensity = gameIntensity, finalTimeSec = Math.floor(gameTimer/60);
+        document.getElementById('finalScore').textContent = finalScore;
+        document.getElementById('finalIntensity').textContent = finalIntensity.toFixed(1)+'x';
+        let mins = Math.floor(finalTimeSec/60), secs = finalTimeSec%60;
+        document.getElementById('finalTime').textContent = `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
+        let isNew = false;
+        if(finalScore > highScore.score) { highScore = { score: finalScore, intensity: finalIntensity, time: finalTimeSec }; localStorage.setItem('fitFrenzyHigh', JSON.stringify(highScore)); isNew = true; }
+        document.getElementById('recordScore').textContent = highScore.score;
+        let recMins = Math.floor(highScore.time/60), recSecs = highScore.time%60;
+        document.getElementById('recordDetails').innerHTML = `Intensidad: ${highScore.intensity.toFixed(1)}x | Tiempo: ${recMins.toString().padStart(2,'0')}:${recSecs.toString().padStart(2,'0')}`;
+        document.getElementById('newRecordMessage').style.display = isNew ? 'block' : 'none';
+        document.getElementById('gameOverScreen').classList.remove('hidden');
+        uiContainer.style.display = 'none';
+        canvas.style.display = 'none';
+    }
+    
+    function resetGame() { 
+        player.reset(); 
+        fallingObjects = []; 
+        spawnCounter = 0; 
+        gameTimer = 0; 
+        gameIntensity = 1.0; 
+        objectsPerSpawn = 1; 
+        spawnRate = 70; 
+        nextHealthThreshold = 100;
+        updateUI(); 
+        player.health = 100; 
+        player.score = 0; 
+    }
+    async function startGame() {
+        await ensureAudioContext();
+        resetGame();
+        gameState = 'playing';
+        playStartSound();
+        startBackgroundMusic();
+        document.getElementById('pixelMenu').classList.add('hidden');
+        canvas.style.display = 'block';
+        uiContainer.style.display = 'flex';
+        document.getElementById('optionsScreen').classList.add('hidden');
+        document.getElementById('pauseScreen').classList.add('hidden');
+        document.getElementById('gameOverScreen').classList.add('hidden');
+        updateCanvasSize();
+        draw();
+    }
+    function pauseGame() { if(gameState==='playing') { gameState='paused'; stopBackgroundMusic(); document.getElementById('pauseScreen').classList.remove('hidden'); } }
+    function resumeGame() { if(gameState==='paused') { gameState='playing'; startBackgroundMusic(); document.getElementById('pauseScreen').classList.add('hidden'); } }
+    function returnToMenu() {
+        gameState = 'menu';
+        stopBackgroundMusic();
+        canvas.style.display = 'none';
+        uiContainer.style.display = 'none';
+        document.getElementById('pixelMenu').classList.remove('hidden');
+        document.getElementById('optionsScreen').classList.add('hidden');
+        document.getElementById('pauseScreen').classList.add('hidden');
+        document.getElementById('gameOverScreen').classList.add('hidden');
+        resetGame();
+    }
+    
+    // ======================== DIBUJO ========================
+    function drawBackground() {
+        const grad = ctx.createLinearGradient(0,0,0,gameHeight);
+        grad.addColorStop(0,'#0a0a20'); grad.addColorStop(1,'#151530');
+        ctx.fillStyle=grad; ctx.fillRect(0,0,gameWidth,gameHeight);
+        ctx.strokeStyle = '#2a4a6a';
+        for(let i=0;i<gameWidth+gameHeight;i+=50) { ctx.beginPath(); ctx.moveTo(i%gameWidth, 0); ctx.lineTo((i+50)%gameWidth, gameHeight); ctx.stroke(); }
+        ctx.fillStyle = '#2a4a6a'; ctx.fillRect(0, gameHeight-15, gameWidth, 15);
+    }
+    function drawPlayer() {
+        ctx.fillStyle = '#4682b4';
+        ctx.fillRect(player.x, player.y, player.width, player.height);
+        ctx.beginPath(); ctx.arc(player.x+player.width/2, player.y-12, 16, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#f0f0f0';
+        ctx.beginPath(); ctx.arc(player.x+player.width/2-5, player.y-16, 3, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(player.x+player.width/2+5, player.y-16, 3, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#111';
+        ctx.beginPath(); ctx.arc(player.x+player.width/2-5, player.y-16, 1.5, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(player.x+player.width/2+5, player.y-16, 1.5, 0, Math.PI*2); ctx.fill();
+    }
+    function draw() { if(gameState === 'playing') { drawBackground(); for(let obj of fallingObjects) obj.draw(ctx); drawPlayer(); } }
+    
+    function loadHighScore() { const saved = localStorage.getItem('fitFrenzyHigh'); if(saved) { try { highScore = JSON.parse(saved); } catch(e) {} } }
+    
+    // ======================== CONTROL TÁCTIL ========================
+    function initTouchControls() {
+        const canvasElem = canvas;
+        function handleTouch(e) {
+            if(gameState !== 'playing') return;
+            e.preventDefault();
+            const rect = canvasElem.getBoundingClientRect();
+            const scaleX = gameWidth / rect.width;
+            if(e.touches.length > 0) {
+                let canvasX = (e.touches[0].clientX - rect.left) * scaleX;
+                canvasX = Math.min(Math.max(canvasX, 0), gameWidth);
+                if(canvasX < gameWidth/2) { keys.ArrowLeft = true; keys.ArrowRight = false; }
+                else { keys.ArrowLeft = false; keys.ArrowRight = true; }
+            }
+        }
+        function handleTouchEnd(e) { if(gameState !== 'playing') return; e.preventDefault(); keys.ArrowLeft = false; keys.ArrowRight = false; }
+        canvasElem.addEventListener('touchstart', handleTouch, { passive: false });
+        canvasElem.addEventListener('touchmove', handleTouch, { passive: false });
+        canvasElem.addEventListener('touchend', handleTouchEnd);
+        canvasElem.addEventListener('touchcancel', handleTouchEnd);
+    }
+    
+    // ======================== LLUVIA DE COMIDA EN EL MENÚ (también más grande) ========================
+    let rainInterval = null;
+    function createFoodElement(food) {
+        const div = document.createElement('div');
+        div.className = 'food-rain';
+        const size = 50 + Math.random() * 20; // entre 50 y 70 píxeles
+        div.style.width = `${size}px`;
+        div.style.height = `${size}px`;
+        div.style.left = Math.random() * 100 + '%';
+        const duration = 3 + Math.random() * 5;
+        div.style.animationDuration = `${duration}s`;
+        div.style.animationDelay = `${Math.random() * 5}s`;
+        const img = document.createElement('img');
+        img.src = food.img;
+        img.style.width = '100%';
+        img.style.height = '100%';
+        img.style.objectFit = 'contain';
+        div.appendChild(img);
+        return div;
+    }
+    function startRainEffect() {
+        const menuDiv = document.getElementById('pixelMenu');
+        const existingRain = menuDiv.querySelectorAll('.food-rain');
+        existingRain.forEach(el => el.remove());
+        for(let i = 0; i < 30; i++) {
+            const randomFood = ALL_FOODS[Math.floor(Math.random() * ALL_FOODS.length)];
+            const foodElement = createFoodElement(randomFood);
+            menuDiv.appendChild(foodElement);
+        }
+        if(rainInterval) clearInterval(rainInterval);
+        rainInterval = setInterval(() => {
+            if(gameState === 'menu') {
+                const randomFood = ALL_FOODS[Math.floor(Math.random() * ALL_FOODS.length)];
+                const newFood = createFoodElement(randomFood);
+                document.getElementById('pixelMenu').appendChild(newFood);
+                const allItems = document.querySelectorAll('.food-rain');
+                if(allItems.length > 80) allItems[0].remove();
+            }
+        }, 800);
+    }
+    
+    // ======================== INICIALIZACIÓN ========================
+    async function init() {
+        const loader = document.createElement('div');
+        loader.className = 'loader';
+        loader.innerText = 'CARGANDO...';
+        document.body.appendChild(loader);
+        await preloadImages();
+        loader.remove();
+        
+        canvas = document.getElementById('gameCanvas');
+        ctx = canvas.getContext('2d');
+        updateCanvasSize();
+        window.addEventListener('resize', () => { updateCanvasSize(); });
+        player.y = gameHeight - 90;
+        player.x = gameWidth/2 - player.width/2;
+        loadHighScore();
+        loadAudioPrefs();
+        loadLanguage();
+        startRainEffect();
+        
+        document.getElementById('menuJugar').addEventListener('click', async () => { playClickSound(); await ensureAudioContext(); startGame(); });
+        document.getElementById('menuOpciones').addEventListener('click', () => { playClickSound(); document.getElementById('optionsScreen').classList.remove('hidden'); document.getElementById('pixelMenu').classList.add('hidden'); });
+        document.getElementById('menuSalir').addEventListener('click', () => { playClickSound(); alert("Gracias por jugar Fit Frenzy"); });
+        
+        const musicSlider = document.getElementById('musicVolume'), effectsSlider = document.getElementById('effectsVolume'), muteBtn = document.getElementById('muteAllBtn');
+        musicSlider.addEventListener('input', (e) => { musicVolume = e.target.value/100; document.getElementById('musicVolValue').innerText = e.target.value; if(!muted && bgMusicGain) bgMusicGain.gain.value = musicVolume; saveAudioPrefs(); if(currentLang === 'es') document.getElementById('musicVolLabel').innerHTML = `Volumen Música: <span id="musicVolValue">${e.target.value}</span>%`; else document.getElementById('musicVolLabel').innerHTML = `Music Volume: <span id="musicVolValue">${e.target.value}</span>%`; });
+        effectsSlider.addEventListener('input', (e) => { effectsVolume = e.target.value/100; document.getElementById('effectsVolValue').innerText = e.target.value; if(!muted && effectsGain) effectsGain.gain.value = effectsVolume; saveAudioPrefs(); if(currentLang === 'es') document.getElementById('effectsVolLabel').innerHTML = `Volumen Efectos: <span id="effectsVolValue">${e.target.value}</span>%`; else document.getElementById('effectsVolLabel').innerHTML = `Effects Volume: <span id="effectsVolValue">${e.target.value}</span>%`; });
+        muteBtn.addEventListener('click', () => { muted = !muted; if(bgMusicGain) bgMusicGain.gain.value = muted ? 0 : musicVolume; if(effectsGain) effectsGain.gain.value = muted ? 0 : effectsVolume; saveAudioPrefs(); const t = texts[currentLang]; muteBtn.innerText = muted ? t.unmuteBtn : t.muteBtn; muteBtn.style.background = muted ? '#2d5685' : '#aa2e2e'; });
+        document.getElementById('langEs').addEventListener('click', () => { playClickSound(); setLanguage('es'); });
+        document.getElementById('langEn').addEventListener('click', () => { playClickSound(); setLanguage('en'); });
+        document.getElementById('closeOptionsBtn').addEventListener('click', () => { playClickSound(); document.getElementById('optionsScreen').classList.add('hidden'); document.getElementById('pixelMenu').classList.remove('hidden'); });
+        
+        window.addEventListener('keydown', (e) => { if(e.key === 'ArrowLeft') keys.ArrowLeft = true; if(e.key === 'ArrowRight') keys.ArrowRight = true; if(e.key === 'p' || e.key === 'P') { if(gameState === 'playing') pauseGame(); else if(gameState === 'paused') resumeGame(); e.preventDefault(); } });
+        window.addEventListener('keyup', (e) => { if(e.key === 'ArrowLeft') keys.ArrowLeft = false; if(e.key === 'ArrowRight') keys.ArrowRight = false; });
+        
+        document.getElementById('resumeButton').onclick = () => { playClickSound(); resumeGame(); };
+        document.getElementById('restartButton').onclick = () => { playClickSound(); startGame(); };
+        document.getElementById('playAgainButton').onclick = () => { playClickSound(); startGame(); };
+        document.getElementById('menuButton').onclick = () => { playClickSound(); returnToMenu(); };
+        document.getElementById('menuButton2').onclick = () => { playClickSound(); returnToMenu(); };
+        
+        initTouchControls();
+        canvas.style.display = 'none';
+        uiContainer.style.display = 'none';
+        
+        function animate() { updateGame(); draw(); requestAnimationFrame(animate); }
+        animate();
+    }
+    
+    init();
+</script>
+</body>
+</html>
