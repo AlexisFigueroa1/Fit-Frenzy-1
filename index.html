@@ -6,7 +6,7 @@
     <title>Fit Frenzy - Arcade Fitness Game</title>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <style>
-        /* ========== ESTILOS (sin cambios) ========== */
+        /* ========== ESTILOS ========== */
         * {
             margin: 0;
             padding: 0;
@@ -218,12 +218,13 @@
             z-index: 20;
             width: 90%;
         }
+        /* TÍTULO MODIFICADO: sombras eliminadas para texto limpio */
         .title {
             font-size: 30px;
             color: white;
             margin-bottom: 60px;
             letter-spacing: 4px;
-            text-shadow: 6px 0 #000, 0 6px #000, 6px 6px #000, 12px 12px #000;
+            text-shadow: none; /* ← Cambio principal: sin sombras duplicadas */
         }
         .menu-button {
             display: block;
@@ -508,7 +509,7 @@
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         osc.type = 'sine';
-        osc.frequency.value = 1318.52; // Mi6
+        osc.frequency.value = 1318.52;
         gain.gain.value = 0.1;
         osc.connect(gain);
         gain.connect(effectsGain);
@@ -594,7 +595,6 @@
     ];
     const ALL_FOODS = [...GOOD_FOODS, ...BAD_FOODS];
     
-    // Precarga de imágenes
     function preloadImages() {
         const promises = ALL_FOODS.map(food => {
             return new Promise((resolve) => {
@@ -706,7 +706,7 @@
     let fallingObjects = [], spawnCounter = 0, spawnRate = 70, gameTimer = 0, gameIntensity = 1.0, objectsPerSpawn = 1;
     let highScore = { score: 0, intensity: 1.0, time: 0 };
     let keys = { ArrowLeft: false, ArrowRight: false };
-    let nextHealthThreshold = 100; // cada 100 puntos, sube 5 de vida
+    let nextHealthThreshold = 100;
     
     const scoreEl = document.getElementById('score'), intensityEl = document.getElementById('intensity'), timeEl = document.getElementById('time');
     const healthFill = document.getElementById('healthFill'), healthText = document.getElementById('healthText');
@@ -735,7 +735,7 @@
         updateUI();
     }
     
-    // ======================== CLASE FallingItem CON TAMAÑO AUMENTADO ========================
+    // ======================== CLASE FallingItem ========================
     class FallingItem {
         constructor(isGood) {
             this.isGood = isGood;
@@ -743,7 +743,7 @@
             const data = list[Math.floor(Math.random() * list.length)];
             this.name = data.name;
             this.value = data.value;
-            this.size = data.size + Math.random() * 10; // entre 48 y 58 píxeles
+            this.size = data.size + Math.random() * 10;
             this.image = data.loadedImg || new Image();
             if (!data.loadedImg) this.image.src = data.img;
             this.x = Math.random() * (gameWidth - this.size - 20) + 10;
@@ -760,7 +760,6 @@
             if (this.image.complete && this.image.naturalWidth > 0) {
                 ctx.drawImage(this.image, -this.size/2, -this.size/2, this.size, this.size);
             } else {
-                // Fallback visual
                 ctx.fillStyle = this.isGood ? '#64c864' : '#dc4646';
                 ctx.fillRect(-this.size/2, -this.size/2, this.size, this.size);
                 ctx.fillStyle = 'white';
@@ -796,19 +795,17 @@
             const bounds = obj.getBounds();
             const playerBounds = player.getBounds();
             
-            // Colisión con el jugador
             if(bounds.x < playerBounds.x+playerBounds.width && bounds.x+bounds.width > playerBounds.x &&
                bounds.y < playerBounds.y+playerBounds.height && bounds.y+bounds.height > playerBounds.y) {
                 if(obj.isGood) {
                     player.score += obj.value;
                     playGoodCollectSound();
-                    // Cada 100 puntos, aumentar vida en 5
                     while (player.score >= nextHealthThreshold) {
                         player.heal(5);
                         nextHealthThreshold += 100;
                     }
                 } else {
-                    player.takeDamage(obj.value); // obj.value es negativo, pero takeDamage usa Math.abs
+                    player.takeDamage(obj.value);
                     playDamageSound();
                     if(player.health <= 0) gameOver();
                 }
@@ -817,9 +814,7 @@
                 continue;
             }
             
-            // Objeto fuera de pantalla
             if(obj.isOffscreen()) {
-                // Si es un objeto bueno y se pierde, restar 2 de salud
                 if(obj.isGood) {
                     player.takeDamage(2);
                     playDamageSound();
@@ -943,12 +938,12 @@
         canvasElem.addEventListener('touchcancel', handleTouchEnd);
     }
     
-    // ======================== LLUVIA DE COMIDA EN EL MENÚ (también más grande) ========================
+    // ======================== LLUVIA DE COMIDA EN EL MENÚ ========================
     let rainInterval = null;
     function createFoodElement(food) {
         const div = document.createElement('div');
         div.className = 'food-rain';
-        const size = 50 + Math.random() * 20; // entre 50 y 70 píxeles
+        const size = 50 + Math.random() * 20;
         div.style.width = `${size}px`;
         div.style.height = `${size}px`;
         div.style.left = Math.random() * 100 + '%';
