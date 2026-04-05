@@ -397,6 +397,7 @@
     // ======================== SISTEMA DE SONIDOS (Web Audio API) ========================
     let audioCtx = null, bgMusicGain = null, effectsGain = null, isAudioAllowed = false, musicInterval = null;
     let musicVolume = 0.5, effectsVolume = 0.5, muted = false;
+    let backgroundMusicStarted = false; // Para evitar múltiples intervalos de música
     
     function loadAudioPrefs() {
         try {
@@ -440,6 +441,11 @@
         if (!audioCtx) initAudio();
         if (audioCtx.state === 'suspended') await audioCtx.resume();
         isAudioAllowed = true;
+        // Iniciar música de fondo si no se ha iniciado
+        if (!backgroundMusicStarted) {
+            startBackgroundMusic();
+            backgroundMusicStarted = true;
+        }
     }
     function playClickSound() {
         if (!audioCtx || !isAudioAllowed) return;
@@ -537,13 +543,12 @@
             osc.stop(now + i * 0.1 + 0.3);
         }
     }
+    // Música de fondo continua (se reproduce siempre, independientemente del estado del juego)
     function startBackgroundMusic() {
-        if (!audioCtx || !isAudioAllowed) return;
-        stopBackgroundMusic();
+        if (musicInterval) return; // Ya está sonando
         let step = 0;
         const notes = [261.63, 293.66, 329.63, 261.63, 261.63, 293.66, 329.63, 261.63];
         musicInterval = setInterval(() => {
-            if (gameState !== 'playing') return;
             if (!audioCtx || audioCtx.state !== 'running') return;
             const now = audioCtx.currentTime;
             const osc = audioCtx.createOscillator();
@@ -559,15 +564,29 @@
             step++;
         }, 500);
     }
-    function stopBackgroundMusic() {
-        if (musicInterval) { clearInterval(musicInterval); musicInterval = null; }
-    }
+    // No se necesita stopBackgroundMusic porque la música es continua
+    
     function enableAudioAndPlayClick(e) {
         if (isAudioAllowed) return;
         initAudio();
         if (audioCtx.state === 'suspended') {
-            audioCtx.resume().then(() => { isAudioAllowed = true; playClickSound(); });
-        } else { isAudioAllowed = true; playClickSound(); }
+            audioCtx.resume().then(() => {
+                isAudioAllowed = true;
+                // Iniciar música de fondo si no se ha iniciado
+                if (!backgroundMusicStarted) {
+                    startBackgroundMusic();
+                    backgroundMusicStarted = true;
+                }
+                playClickSound();
+            });
+        } else {
+            isAudioAllowed = true;
+            if (!backgroundMusicStarted) {
+                startBackgroundMusic();
+                backgroundMusicStarted = true;
+            }
+            playClickSound();
+        }
         document.removeEventListener('click', enableAudioAndPlayClick);
         document.removeEventListener('touchstart', enableAudioAndPlayClick);
     }
@@ -837,7 +856,7 @@
     function gameOver() {
         gameState = 'gameover';
         playGameOverSound();
-        stopBackgroundMusic();
+        // La música de fondo continúa (no se detiene)
         const finalScore = player.score, finalIntensity = gameIntensity, finalTimeSec = Math.floor(gameTimer/60);
         document.getElementById('finalScore').textContent = finalScore;
         document.getElementById('finalIntensity').textContent = finalIntensity.toFixed(1)+'x';
@@ -872,7 +891,7 @@
         resetGame();
         gameState = 'playing';
         playStartSound();
-        startBackgroundMusic();
+        // La música de fondo ya está sonando, no la reiniciamos
         document.getElementById('pixelMenu').classList.add('hidden');
         canvas.style.display = 'block';
         uiContainer.style.display = 'flex';
@@ -882,11 +901,10 @@
         updateCanvasSize();
         draw();
     }
-    function pauseGame() { if(gameState==='playing') { gameState='paused'; stopBackgroundMusic(); document.getElementById('pauseScreen').classList.remove('hidden'); } }
-    function resumeGame() { if(gameState==='paused') { gameState='playing'; startBackgroundMusic(); document.getElementById('pauseScreen').classList.add('hidden'); } }
+    function pauseGame() { if(gameState==='playing') { gameState='paused'; document.getElementById('pauseScreen').classList.remove('hidden'); } } // La música continúa
+    function resumeGame() { if(gameState==='paused') { gameState='playing'; document.getElementById('pauseScreen').classList.add('hidden'); } }
     function returnToMenu() {
         gameState = 'menu';
-        stopBackgroundMusic();
         canvas.style.display = 'none';
         uiContainer.style.display = 'none';
         document.getElementById('pixelMenu').classList.remove('hidden');
@@ -1003,6 +1021,7 @@
         loadLanguage();
         startRainEffect();
         
+        // Botones del menú con sonido (playClickSound ya está incluido)
         document.getElementById('menuJugar').addEventListener('click', async () => { playClickSound(); await ensureAudioContext(); startGame(); });
         document.getElementById('menuOpciones').addEventListener('click', () => { playClickSound(); document.getElementById('optionsScreen').classList.remove('hidden'); document.getElementById('pixelMenu').classList.add('hidden'); });
         document.getElementById('menuSalir').addEventListener('click', () => { playClickSound(); alert("Gracias por jugar Fit Frenzy"); });
