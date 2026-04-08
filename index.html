@@ -204,6 +204,7 @@
             z-index: 2;
             will-change: transform;
             animation: fall linear infinite;
+            animation-fill-mode: backwards; /* Corrige el congelamiento durante el delay */
             top: 0;
             left: 0;
         }
@@ -964,7 +965,7 @@
         canvasElem.addEventListener('touchcancel', handleTouchEnd);
     }
     
-    // ======================== LLUVIA DE COMIDA EN EL MENÚ (CORREGIDA) ========================
+    // ======================== LLUVIA DE COMIDA EN EL MENÚ (CORREGIDA SIN CONGELAMIENTO) ========================
     let rainInterval = null;
     function createFoodElement(food, delay = 0) {
         const div = document.createElement('div');
@@ -988,8 +989,8 @@
         const menuDiv = document.getElementById('pixelMenu');
         const existingRain = menuDiv.querySelectorAll('.food-rain');
         existingRain.forEach(el => el.remove());
-        // Crear 40 elementos sin retraso para que caigan inmediatamente
-        for(let i = 0; i < 40; i++) {
+        // Crear 35 elementos sin retraso para que caigan inmediatamente
+        for(let i = 0; i < 35; i++) {
             const randomFood = ALL_FOODS[Math.floor(Math.random() * ALL_FOODS.length)];
             const foodElement = createFoodElement(randomFood, 0);
             menuDiv.appendChild(foodElement);
@@ -998,12 +999,12 @@
         rainInterval = setInterval(() => {
             if(gameState === 'menu') {
                 const randomFood = ALL_FOODS[Math.floor(Math.random() * ALL_FOODS.length)];
-                const newFood = createFoodElement(randomFood, Math.random() * 3);
+                const newFood = createFoodElement(randomFood, 0); // Sin retardo
                 document.getElementById('pixelMenu').appendChild(newFood);
                 const allItems = document.querySelectorAll('.food-rain');
-                if(allItems.length > 100) allItems[0].remove();
+                if(allItems.length > 80) allItems[0].remove();
             }
-        }, 600);
+        }, 500);
     }
     
     // ======================== INICIALIZACIÓN ========================
