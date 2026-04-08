@@ -204,9 +204,6 @@
             z-index: 2;
             will-change: transform;
             animation: fall linear infinite;
-            animation-fill-mode: backwards; /* Corrige el congelamiento durante el delay */
-            top: 0;
-            left: 0;
         }
         @keyframes fall {
             0% { transform: translateY(-100px); opacity: 1; }
@@ -400,7 +397,7 @@
     // ======================== SISTEMA DE SONIDOS (Web Audio API) ========================
     let audioCtx = null, bgMusicGain = null, effectsGain = null, isAudioAllowed = false, musicInterval = null;
     let musicVolume = 0.5, effectsVolume = 0.5, muted = false;
-    let menuMusicActive = false;
+    let menuMusicActive = false; // Controla si la música del menú está sonando
     
     function loadAudioPrefs() {
         try {
@@ -444,6 +441,7 @@
         if (!audioCtx) initAudio();
         if (audioCtx.state === 'suspended') await audioCtx.resume();
         isAudioAllowed = true;
+        // Iniciar música del menú solo si estamos en el menú y no está ya sonando
         if (gameState === 'menu' && !menuMusicActive) {
             startMenuMusic();
         }
@@ -544,15 +542,16 @@
             osc.stop(now + i * 0.1 + 0.3);
         }
     }
+    // Música del menú (se reproduce solo cuando gameState === 'menu')
     function startMenuMusic() {
         if (musicInterval) stopMenuMusic();
         if (!audioCtx || !isAudioAllowed) return;
-        if (gameState !== 'menu') return;
+        if (gameState !== 'menu') return; // Solo en menú
         let step = 0;
         const notes = [261.63, 293.66, 329.63, 261.63, 261.63, 293.66, 329.63, 261.63];
         musicInterval = setInterval(() => {
             if (!audioCtx || audioCtx.state !== 'running') return;
-            if (gameState !== 'menu') return;
+            if (gameState !== 'menu') return; // Detener si ya no estamos en menú
             const now = audioCtx.currentTime;
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
@@ -859,6 +858,7 @@
     function gameOver() {
         gameState = 'gameover';
         playGameOverSound();
+        // La música del menú no se reanuda aquí, solo cuando se vuelva al menú
         const finalScore = player.score, finalIntensity = gameIntensity, finalTimeSec = Math.floor(gameTimer/60);
         document.getElementById('finalScore').textContent = finalScore;
         document.getElementById('finalIntensity').textContent = finalIntensity.toFixed(1)+'x';
@@ -893,6 +893,7 @@
         resetGame();
         gameState = 'playing';
         playStartSound();
+        // Detener música del menú si estaba sonando
         if (menuMusicActive) stopMenuMusic();
         document.getElementById('pixelMenu').classList.add('hidden');
         canvas.style.display = 'block';
@@ -914,6 +915,7 @@
         document.getElementById('pauseScreen').classList.add('hidden');
         document.getElementById('gameOverScreen').classList.add('hidden');
         resetGame();
+        // Reiniciar música del menú si el audio está permitido
         if (isAudioAllowed && !menuMusicActive) {
             startMenuMusic();
         }
@@ -965,9 +967,9 @@
         canvasElem.addEventListener('touchcancel', handleTouchEnd);
     }
     
-    // ======================== LLUVIA DE COMIDA EN EL MENÚ (CORREGIDA SIN CONGELAMIENTO) ========================
+    // ======================== LLUVIA DE COMIDA EN EL MENÚ ========================
     let rainInterval = null;
-    function createFoodElement(food, delay = 0) {
+    function createFoodElement(food) {
         const div = document.createElement('div');
         div.className = 'food-rain';
         const size = 50 + Math.random() * 20;
@@ -976,7 +978,7 @@
         div.style.left = Math.random() * 100 + '%';
         const duration = 3 + Math.random() * 5;
         div.style.animationDuration = `${duration}s`;
-        div.style.animationDelay = `${delay}s`;
+        div.style.animationDelay = `${Math.random() * 5}s`;
         const img = document.createElement('img');
         img.src = food.img;
         img.style.width = '100%';
@@ -989,22 +991,21 @@
         const menuDiv = document.getElementById('pixelMenu');
         const existingRain = menuDiv.querySelectorAll('.food-rain');
         existingRain.forEach(el => el.remove());
-        // Crear 35 elementos sin retraso para que caigan inmediatamente
-        for(let i = 0; i < 35; i++) {
+        for(let i = 0; i < 30; i++) {
             const randomFood = ALL_FOODS[Math.floor(Math.random() * ALL_FOODS.length)];
-            const foodElement = createFoodElement(randomFood, 0);
+            const foodElement = createFoodElement(randomFood);
             menuDiv.appendChild(foodElement);
         }
         if(rainInterval) clearInterval(rainInterval);
         rainInterval = setInterval(() => {
             if(gameState === 'menu') {
                 const randomFood = ALL_FOODS[Math.floor(Math.random() * ALL_FOODS.length)];
-                const newFood = createFoodElement(randomFood, 0); // Sin retardo
+                const newFood = createFoodElement(randomFood);
                 document.getElementById('pixelMenu').appendChild(newFood);
                 const allItems = document.querySelectorAll('.food-rain');
                 if(allItems.length > 80) allItems[0].remove();
             }
-        }, 500);
+        }, 800);
     }
     
     // ======================== INICIALIZACIÓN ========================
@@ -1027,6 +1028,7 @@
         loadLanguage();
         startRainEffect();
         
+        // Botones del menú con sonido (playClickSound ya está incluido)
         document.getElementById('menuJugar').addEventListener('click', async () => { playClickSound(); await ensureAudioContext(); startGame(); });
         document.getElementById('menuOpciones').addEventListener('click', () => { playClickSound(); document.getElementById('optionsScreen').classList.remove('hidden'); document.getElementById('pixelMenu').classList.add('hidden'); });
         document.getElementById('menuSalir').addEventListener('click', () => { playClickSound(); alert("Gracias por jugar Fit Frenzy"); });
