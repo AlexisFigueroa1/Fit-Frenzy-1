@@ -237,7 +237,7 @@
             color: white;
             background: #1d4ed8;
             border: 6px solid black;
-            box-shadow: none; /* Eliminado el sombreado */
+            box-shadow: none;
             cursor: pointer;
             font-family: 'Press Start 2P', monospace;
             text-align: center;
@@ -246,7 +246,7 @@
         }
         .menu-button:hover { background: #3b82f6; }
         .menu-button:active {
-            transform: scale(0.96); /* Efecto de presión sin sombra */
+            transform: scale(0.96);
             box-shadow: none;
         }
         .options-panel {
@@ -397,7 +397,7 @@
     // ======================== SISTEMA DE SONIDOS (Web Audio API) ========================
     let audioCtx = null, bgMusicGain = null, effectsGain = null, isAudioAllowed = false, musicInterval = null;
     let musicVolume = 0.5, effectsVolume = 0.5, muted = false;
-    let backgroundMusicStarted = false; // Para evitar múltiples intervalos de música
+    let menuMusicActive = false; // Controla si la música del menú está sonando
     
     function loadAudioPrefs() {
         try {
@@ -441,10 +441,9 @@
         if (!audioCtx) initAudio();
         if (audioCtx.state === 'suspended') await audioCtx.resume();
         isAudioAllowed = true;
-        // Iniciar música de fondo si no se ha iniciado
-        if (!backgroundMusicStarted) {
-            startBackgroundMusic();
-            backgroundMusicStarted = true;
+        // Iniciar música del menú solo si estamos en el menú y no está ya sonando
+        if (gameState === 'menu' && !menuMusicActive) {
+            startMenuMusic();
         }
     }
     function playClickSound() {
@@ -543,13 +542,16 @@
             osc.stop(now + i * 0.1 + 0.3);
         }
     }
-    // Música de fondo continua (se reproduce siempre, independientemente del estado del juego)
-    function startBackgroundMusic() {
-        if (musicInterval) return; // Ya está sonando
+    // Música del menú (se reproduce solo cuando gameState === 'menu')
+    function startMenuMusic() {
+        if (musicInterval) stopMenuMusic();
+        if (!audioCtx || !isAudioAllowed) return;
+        if (gameState !== 'menu') return; // Solo en menú
         let step = 0;
         const notes = [261.63, 293.66, 329.63, 261.63, 261.63, 293.66, 329.63, 261.63];
         musicInterval = setInterval(() => {
             if (!audioCtx || audioCtx.state !== 'running') return;
+            if (gameState !== 'menu') return; // Detener si ya no estamos en menú
             const now = audioCtx.currentTime;
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
@@ -563,8 +565,15 @@
             osc.stop(now + 0.4);
             step++;
         }, 500);
+        menuMusicActive = true;
     }
-    // No se necesita stopBackgroundMusic porque la música es continua
+    function stopMenuMusic() {
+        if (musicInterval) {
+            clearInterval(musicInterval);
+            musicInterval = null;
+        }
+        menuMusicActive = false;
+    }
     
     function enableAudioAndPlayClick(e) {
         if (isAudioAllowed) return;
@@ -572,19 +581,12 @@
         if (audioCtx.state === 'suspended') {
             audioCtx.resume().then(() => {
                 isAudioAllowed = true;
-                // Iniciar música de fondo si no se ha iniciado
-                if (!backgroundMusicStarted) {
-                    startBackgroundMusic();
-                    backgroundMusicStarted = true;
-                }
+                if (gameState === 'menu') startMenuMusic();
                 playClickSound();
             });
         } else {
             isAudioAllowed = true;
-            if (!backgroundMusicStarted) {
-                startBackgroundMusic();
-                backgroundMusicStarted = true;
-            }
+            if (gameState === 'menu') startMenuMusic();
             playClickSound();
         }
         document.removeEventListener('click', enableAudioAndPlayClick);
@@ -593,7 +595,7 @@
     document.addEventListener('click', enableAudioAndPlayClick);
     document.addEventListener('touchstart', enableAudioAndPlayClick);
     
-    // ======================== LISTAS DE ALIMENTOS CON IMÁGENES MÁS GRANDES ========================
+    // ======================== LISTAS DE ALIMENTOS CON IMÁGENES ========================
     const GOOD_FOODS = [
         { id: 'creatina', name: 'Creatina', value: 20, img: 'img/Creatina.png', size: 48 },
         { id: 'proteina', name: 'Proteína', value: 15, img: 'img/Proteina.png', size: 48 },
@@ -856,7 +858,7 @@
     function gameOver() {
         gameState = 'gameover';
         playGameOverSound();
-        // La música de fondo continúa (no se detiene)
+        // La música del menú no se reanuda aquí, solo cuando se vuelva al menú
         const finalScore = player.score, finalIntensity = gameIntensity, finalTimeSec = Math.floor(gameTimer/60);
         document.getElementById('finalScore').textContent = finalScore;
         document.getElementById('finalIntensity').textContent = finalIntensity.toFixed(1)+'x';
@@ -891,7 +893,8 @@
         resetGame();
         gameState = 'playing';
         playStartSound();
-        // La música de fondo ya está sonando, no la reiniciamos
+        // Detener música del menú si estaba sonando
+        if (menuMusicActive) stopMenuMusic();
         document.getElementById('pixelMenu').classList.add('hidden');
         canvas.style.display = 'block';
         uiContainer.style.display = 'flex';
@@ -901,7 +904,7 @@
         updateCanvasSize();
         draw();
     }
-    function pauseGame() { if(gameState==='playing') { gameState='paused'; document.getElementById('pauseScreen').classList.remove('hidden'); } } // La música continúa
+    function pauseGame() { if(gameState==='playing') { gameState='paused'; document.getElementById('pauseScreen').classList.remove('hidden'); } }
     function resumeGame() { if(gameState==='paused') { gameState='playing'; document.getElementById('pauseScreen').classList.add('hidden'); } }
     function returnToMenu() {
         gameState = 'menu';
@@ -912,6 +915,10 @@
         document.getElementById('pauseScreen').classList.add('hidden');
         document.getElementById('gameOverScreen').classList.add('hidden');
         resetGame();
+        // Reiniciar música del menú si el audio está permitido
+        if (isAudioAllowed && !menuMusicActive) {
+            startMenuMusic();
+        }
     }
     
     // ======================== DIBUJO ========================
