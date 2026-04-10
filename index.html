@@ -965,7 +965,7 @@
         canvasElem.addEventListener('touchcancel', handleTouchEnd);
     }
     
-    // ======================== LLUVIA DE COMIDA EN EL MENÚ (PROGRESIVA, SIN SATURACIÓN) ========================
+    // ======================== LLUVIA DE COMIDA EN EL MENÚ (MÁS COMIDA) ========================
     let rainInterval = null;
     function createFoodElement(food) {
         const div = document.createElement('div');
@@ -976,7 +976,7 @@
         div.style.left = Math.random() * 100 + '%';
         const duration = 3 + Math.random() * 4;
         div.style.animationDuration = `${duration}s`;
-        div.style.animationDelay = `0s`; // Sin retardo
+        div.style.animationDelay = `0s`;
         const img = document.createElement('img');
         img.src = food.img;
         img.style.width = '100%';
@@ -990,25 +990,25 @@
         const existingRain = menuDiv.querySelectorAll('.food-rain');
         existingRain.forEach(el => el.remove());
         
-        // Solo 3 elementos iniciales para empezar suavemente
-        for(let i = 0; i < 3; i++) {
+        // Generar 15 elementos iniciales para más comida
+        for(let i = 0; i < 15; i++) {
             const randomFood = ALL_FOODS[Math.floor(Math.random() * ALL_FOODS.length)];
             const foodElement = createFoodElement(randomFood);
             menuDiv.appendChild(foodElement);
         }
         
         if(rainInterval) clearInterval(rainInterval);
-        // Cada 800 ms se añade un nuevo elemento (lluvia constante pero no masiva)
+        // Añadir un nuevo elemento cada 400 ms (más frecuencia)
         rainInterval = setInterval(() => {
             if(gameState === 'menu') {
                 const randomFood = ALL_FOODS[Math.floor(Math.random() * ALL_FOODS.length)];
                 const newFood = createFoodElement(randomFood);
                 document.getElementById('pixelMenu').appendChild(newFood);
                 const allItems = document.querySelectorAll('.food-rain');
-                // Limitar a 60 elementos para rendimiento
-                if(allItems.length > 60) allItems[0].remove();
+                // Limitar a 80 elementos para rendimiento
+                if(allItems.length > 80) allItems[0].remove();
             }
-        }, 800);
+        }, 400);
     }
     
     // ======================== INICIALIZACIÓN ========================
