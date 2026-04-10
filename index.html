@@ -448,14 +448,15 @@
             startMenuMusic();
         }
     }
+    // Sonido de clic mejorado (más volumen y tono cuadrado para mayor nitidez)
     function playClickSound() {
         if (!audioCtx || !isAudioAllowed) return;
         const now = audioCtx.currentTime;
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
-        osc.type = 'square';
+        osc.type = 'square';     // Cambiado de 'sine' a 'square' para un beep más característico
         osc.frequency.value = 880;
-        gain.gain.value = 0.3;
+        gain.gain.value = 0.3;   // Volumen aumentado de 0.2 a 0.3
         osc.connect(gain);
         gain.connect(effectsGain);
         osc.start();
@@ -621,9 +622,6 @@
     ];
     const ALL_FOODS = [...GOOD_FOODS, ...BAD_FOODS];
     
-    // Precargar imágenes (incluyendo el spritesheet del jugador)
-    let playerSpriteImg = null; // Se cargará después
-    
     function preloadImages() {
         const promises = ALL_FOODS.map(food => {
             return new Promise((resolve) => {
@@ -637,17 +635,6 @@
                 food.loadedImg = img;
             });
         });
-        // Cargar spritesheet del jugador
-        const playerSpritePromise = new Promise((resolve) => {
-            playerSpriteImg = new Image();
-            playerSpriteImg.onload = () => resolve(true);
-            playerSpriteImg.onerror = () => {
-                console.warn("No se pudo cargar el spritesheet del jugador (img/player_sprite.png). Se usará rectángulo de respaldo.");
-                resolve(false);
-            };
-            playerSpriteImg.src = "img/player_sprite.png";
-        });
-        promises.push(playerSpritePromise);
         return Promise.all(promises);
     }
     
@@ -716,19 +703,10 @@
         }
     }
     
-    // ======================== VARIABLES DEL JUEGO (con sprite animado) ========================
+    // ======================== VARIABLES DEL JUEGO ========================
     let gameState = 'menu';
     let player = {
         x: 0, y: 0, width: 70, height: 35, speed: 7, score: 0, health: 100, maxHealth: 100,
-        // Propiedades del sprite
-        spriteImg: null,            // Se asignará después de cargar la imagen
-        numFrames: 4,               // Número de frames en el spritesheet (horizontal)
-        frameWidth: 0,              // Se calculará al cargar la imagen (ancho total / numFrames)
-        frameHeight: 0,             // Se calculará al cargar la imagen (alto total)
-        currentFrame: 0,
-        animFrameDelay: 6,          // Cambiar de frame cada 6 frames (aprox 10 fps si el juego va a 60 fps)
-        lastFrameChange: 0,
-        
         update() { },
         move(dir) {
             let step = this.speed;
@@ -750,23 +728,8 @@
             this.y = gameHeight - 90;
             this.score = 0;
             this.health = this.maxHealth;
-            this.currentFrame = 0;
-            this.lastFrameChange = 0;
-        },
-        // Método para inicializar las dimensiones del sprite una vez cargada la imagen
-        initSprite(img) {
-            this.spriteImg = img;
-            if (img && img.complete && img.naturalWidth > 0) {
-                this.frameWidth = img.naturalWidth / this.numFrames;
-                this.frameHeight = img.naturalHeight;
-            } else {
-                // Fallback: usar el ancho/alto actual del jugador como tamaño de frame (no ideal, pero evita errores)
-                this.frameWidth = this.width;
-                this.frameHeight = this.height;
-            }
         }
     };
-    
     let fallingObjects = [], spawnCounter = 0, spawnRate = 70, gameTimer = 0, gameIntensity = 1.0, objectsPerSpawn = 1;
     let highScore = { score: 0, intensity: 1.0, time: 0 };
     let keys = { ArrowLeft: false, ArrowRight: false };
@@ -957,7 +920,7 @@
         }
     }
     
-    // ======================== DIBUJO (con sprite animado) ========================
+    // ======================== DIBUJO ========================
     function drawBackground() {
         const grad = ctx.createLinearGradient(0,0,0,gameHeight);
         grad.addColorStop(0,'#0a0a20'); grad.addColorStop(1,'#151530');
@@ -966,41 +929,18 @@
         for(let i=0;i<gameWidth+gameHeight;i+=50) { ctx.beginPath(); ctx.moveTo(i%gameWidth, 0); ctx.lineTo((i+50)%gameWidth, gameHeight); ctx.stroke(); }
         ctx.fillStyle = '#2a4a6a'; ctx.fillRect(0, gameHeight-15, gameWidth, 15);
     }
-    
     function drawPlayer() {
-        // Si el sprite está cargado y tiene dimensiones, dibujar el frame actual
-        if (player.spriteImg && player.spriteImg.complete && player.spriteImg.naturalWidth > 0 && player.frameWidth > 0) {
-            // Actualizar animación según gameTimer
-            if (gameTimer - player.lastFrameChange >= player.animFrameDelay) {
-                player.currentFrame = (player.currentFrame + 1) % player.numFrames;
-                player.lastFrameChange = gameTimer;
-            }
-            // Dibujar el frame correspondiente
-            const sx = player.currentFrame * player.frameWidth;
-            const sy = 0;
-            const sw = player.frameWidth;
-            const sh = player.frameHeight;
-            ctx.drawImage(player.spriteImg, sx, sy, sw, sh, player.x, player.y, player.width, player.height);
-        } else {
-            // Fallback: dibujar rectángulo azul mientras carga o si no hay sprite
-            ctx.fillStyle = '#4682b4';
-            ctx.fillRect(player.x, player.y, player.width, player.height);
-            ctx.fillStyle = '#f0f0f0';
-            ctx.beginPath(); ctx.arc(player.x+player.width/2-5, player.y-16, 3, 0, Math.PI*2); ctx.fill();
-            ctx.beginPath(); ctx.arc(player.x+player.width/2+5, player.y-16, 3, 0, Math.PI*2); ctx.fill();
-            ctx.fillStyle = '#111';
-            ctx.beginPath(); ctx.arc(player.x+player.width/2-5, player.y-16, 1.5, 0, Math.PI*2); ctx.fill();
-            ctx.beginPath(); ctx.arc(player.x+player.width/2+5, player.y-16, 1.5, 0, Math.PI*2); ctx.fill();
-        }
+        ctx.fillStyle = '#4682b4';
+        ctx.fillRect(player.x, player.y, player.width, player.height);
+        ctx.beginPath(); ctx.arc(player.x+player.width/2, player.y-12, 16, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#f0f0f0';
+        ctx.beginPath(); ctx.arc(player.x+player.width/2-5, player.y-16, 3, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(player.x+player.width/2+5, player.y-16, 3, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#111';
+        ctx.beginPath(); ctx.arc(player.x+player.width/2-5, player.y-16, 1.5, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(player.x+player.width/2+5, player.y-16, 1.5, 0, Math.PI*2); ctx.fill();
     }
-    
-    function draw() { 
-        if(gameState === 'playing') { 
-            drawBackground(); 
-            for(let obj of fallingObjects) obj.draw(ctx); 
-            drawPlayer(); 
-        } 
-    }
+    function draw() { if(gameState === 'playing') { drawBackground(); for(let obj of fallingObjects) obj.draw(ctx); drawPlayer(); } }
     
     function loadHighScore() { const saved = localStorage.getItem('fitFrenzyHigh'); if(saved) { try { highScore = JSON.parse(saved); } catch(e) {} } }
     
@@ -1026,7 +966,7 @@
         canvasElem.addEventListener('touchcancel', handleTouchEnd);
     }
     
-    // ======================== LLUVIA DE COMIDA EN EL MENÚ ========================
+    // ======================== LLUVIA DE COMIDA EN EL MENÚ (MÁS COMIDA) ========================
     let rainInterval = null;
     function createFoodElement(food) {
         const div = document.createElement('div');
@@ -1050,18 +990,23 @@
         const menuDiv = document.getElementById('pixelMenu');
         const existingRain = menuDiv.querySelectorAll('.food-rain');
         existingRain.forEach(el => el.remove());
+        
+        // Generar 15 elementos iniciales para más comida
         for(let i = 0; i < 15; i++) {
             const randomFood = ALL_FOODS[Math.floor(Math.random() * ALL_FOODS.length)];
             const foodElement = createFoodElement(randomFood);
             menuDiv.appendChild(foodElement);
         }
+        
         if(rainInterval) clearInterval(rainInterval);
+        // Añadir un nuevo elemento cada 400 ms (más frecuencia)
         rainInterval = setInterval(() => {
             if(gameState === 'menu') {
                 const randomFood = ALL_FOODS[Math.floor(Math.random() * ALL_FOODS.length)];
                 const newFood = createFoodElement(randomFood);
                 document.getElementById('pixelMenu').appendChild(newFood);
                 const allItems = document.querySelectorAll('.food-rain');
+                // Limitar a 80 elementos para rendimiento
                 if(allItems.length > 80) allItems[0].remove();
             }
         }, 400);
@@ -1075,16 +1020,6 @@
         document.body.appendChild(loader);
         await preloadImages();
         loader.remove();
-        
-        // Inicializar el sprite del jugador una vez cargado
-        if (playerSpriteImg && playerSpriteImg.complete && playerSpriteImg.naturalWidth > 0) {
-            player.initSprite(playerSpriteImg);
-        } else {
-            // Fallback: usar dimensiones por defecto
-            player.frameWidth = player.width;
-            player.frameHeight = player.height;
-            player.spriteImg = null;
-        }
         
         canvas = document.getElementById('gameCanvas');
         ctx = canvas.getContext('2d');
