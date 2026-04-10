@@ -448,14 +448,15 @@
             startMenuMusic();
         }
     }
+    // Sonido de clic mejorado (más volumen y tono cuadrado para mayor nitidez)
     function playClickSound() {
         if (!audioCtx || !isAudioAllowed) return;
         const now = audioCtx.currentTime;
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
-        osc.type = 'sine';
+        osc.type = 'square';     // Cambiado de 'sine' a 'square' para un beep más característico
         osc.frequency.value = 880;
-        gain.gain.value = 0.2;
+        gain.gain.value = 0.3;   // Volumen aumentado de 0.2 a 0.3
         osc.connect(gain);
         gain.connect(effectsGain);
         osc.start();
