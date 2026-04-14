@@ -646,10 +646,10 @@
             backgroundImg = new Image();
             backgroundImg.onload = () => resolve(true);
             backgroundImg.onerror = () => {
-                console.warn("No se pudo cargar la imagen de fondo (img/fondo.png). Se usará el fondo original.");
+                console.warn("No se pudo cargar la imagen de fondo (img/fondo4.png). Se usará el fondo original.");
                 resolve(false);
             };
-            backgroundImg.src = "img/fondo.png"; // Cambia esta ruta si tu imagen tiene otro nombre
+            backgroundImg.src = "img/fondo4.png"; // Cambia esta ruta si tu imagen tiene otro nombre
         });
         promises.push(playerImgPromise);
         promises.push(backgroundPromise);
