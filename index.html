@@ -617,7 +617,7 @@
     const ALL_FOODS = [...GOOD_FOODS, ...BAD_FOODS];
     
     let playerStaticImg = null;
-    let backgroundImg = null;  // Imagen de fondo del juego
+    let backgroundImg = null;
     
     function preloadImages() {
         const promises = ALL_FOODS.map(food => {
@@ -641,7 +641,6 @@
             };
             playerStaticImg.src = "img/lobo comiendo9.png";
         });
-        // Cargar imagen de fondo del juego
         const backgroundPromise = new Promise((resolve) => {
             backgroundImg = new Image();
             backgroundImg.onload = () => resolve(true);
@@ -649,7 +648,7 @@
                 console.warn("No se pudo cargar la imagen de fondo (img/fondo4.png). Se usará el fondo original.");
                 resolve(false);
             };
-            backgroundImg.src = "img/fondo4.png"; // Cambia esta ruta si tu imagen tiene otro nombre
+            backgroundImg.src = "img/fondo4.png";
         });
         promises.push(playerImgPromise);
         promises.push(backgroundPromise);
@@ -731,7 +730,6 @@
             if(dir === 'right') this.x += step;
             this.x = Math.max(0, Math.min(gameWidth - this.width, this.x));
         },
-        // Hitbox precisa con porcentajes relativos al tamaño del sprite
         getBounds() {
             const widthPercent = 0.55;
             const heightPercent = 0.6;
@@ -764,7 +762,7 @@
     };
     
     let fallingObjects = [], spawnCounter = 0, spawnRate = 70, gameTimer = 0, gameIntensity = 1.0, objectsPerSpawn = 1;
-    let highScore = { score: 0, intensity: 1.0, time: 0 };
+    let highScore = { score: 0, intensity: 1.0, time: 0 }; // se cargará desde BD al iniciar
     let keys = { ArrowLeft: false, ArrowRight: false };
     let nextHealthThreshold = 100;
     
@@ -889,6 +887,55 @@
         if(player.health <= 0) gameOver();
     }
     
+    // ======================== FUNCIONES PARA BASE DE DATOS ========================
+    async function loadHighScoreFromDB() {
+        try {
+            const response = await fetch('get_score.php');
+            const data = await response.json();
+            if (data.success) {
+                highScore = {
+                    score: data.score,
+                    intensity: data.intensity,
+                    time: data.time
+                };
+            } else {
+                highScore = { score: 0, intensity: 1.0, time: 0 };
+            }
+            // Actualizar UI del récord
+            document.getElementById('recordScore').textContent = highScore.score;
+            let recMins = Math.floor(highScore.time / 60), recSecs = highScore.time % 60;
+            document.getElementById('recordDetails').innerHTML = `Intensidad: ${highScore.intensity.toFixed(1)}x | Tiempo: ${recMins.toString().padStart(2,'0')}:${recSecs.toString().padStart(2,'0')}`;
+        } catch (error) {
+            console.error("Error cargando récord desde BD:", error);
+            highScore = { score: 0, intensity: 1.0, time: 0 };
+        }
+    }
+    
+    async function saveHighScoreToDB(score, intensity, timeSec) {
+        try {
+            const response = await fetch('save_score.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ score: score, intensity: intensity, time: timeSec })
+            });
+            const data = await response.json();
+            if (data.success && data.isNewRecord) {
+                // Actualizar variable local y UI
+                highScore = { score: score, intensity: intensity, time: timeSec };
+                document.getElementById('recordScore').textContent = highScore.score;
+                let recMins = Math.floor(highScore.time / 60), recSecs = highScore.time % 60;
+                document.getElementById('recordDetails').innerHTML = `Intensidad: ${highScore.intensity.toFixed(1)}x | Tiempo: ${recMins.toString().padStart(2,'0')}:${recSecs.toString().padStart(2,'0')}`;
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error("Error guardando récord en BD:", error);
+            return false;
+        }
+    }
+    
+    // Modificar gameOver para que use BD
+    const originalGameOver = gameOver; // no se usa, redefinimos
     function gameOver() {
         gameState = 'gameover';
         playGameOverSound();
@@ -897,17 +944,32 @@
         document.getElementById('finalIntensity').textContent = finalIntensity.toFixed(1)+'x';
         let mins = Math.floor(finalTimeSec/60), secs = finalTimeSec%60;
         document.getElementById('finalTime').textContent = `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
-        let isNew = false;
-        if(finalScore > highScore.score) { highScore = { score: finalScore, intensity: finalIntensity, time: finalTimeSec }; localStorage.setItem('fitFrenzyHigh', JSON.stringify(highScore)); isNew = true; }
+        
+        // Verificar si es nuevo récord comparando con highScore actual (desde BD)
+        if (finalScore > highScore.score) {
+            saveHighScoreToDB(finalScore, finalIntensity, finalTimeSec).then(isNew => {
+                if (isNew) {
+                    document.getElementById('newRecordMessage').style.display = 'block';
+                } else {
+                    document.getElementById('newRecordMessage').style.display = 'none';
+                }
+            });
+        } else {
+            document.getElementById('newRecordMessage').style.display = 'none';
+        }
+        
+        // Mostrar el récord actual (puede haberse actualizado)
         document.getElementById('recordScore').textContent = highScore.score;
         let recMins = Math.floor(highScore.time/60), recSecs = highScore.time%60;
         document.getElementById('recordDetails').innerHTML = `Intensidad: ${highScore.intensity.toFixed(1)}x | Tiempo: ${recMins.toString().padStart(2,'0')}:${recSecs.toString().padStart(2,'0')}`;
-        document.getElementById('newRecordMessage').style.display = isNew ? 'block' : 'none';
         document.getElementById('gameOverScreen').classList.remove('hidden');
         uiContainer.style.display = 'none';
         canvas.style.display = 'none';
     }
+    // Sobrescribir la función global
+    window.gameOver = gameOver;
     
+    // ======================== RESTO DEL CÓDIGO (sin cambios relevantes) ========================
     function resetGame() { 
         player.reset(); 
         fallingObjects = []; 
@@ -989,18 +1051,61 @@
     
     function draw() { 
         if(gameState === 'playing') { 
-            // LIMPIAR COMPLETAMENTE EL CANVAS ANTES DE DIBUJAR CADA FRAME
             ctx.clearRect(0, 0, gameWidth, gameHeight);
-            
             drawBackground(); 
             for(let obj of fallingObjects) obj.draw(ctx); 
             drawPlayer(); 
         } 
     }
     
-    function loadHighScore() { const saved = localStorage.getItem('fitFrenzyHigh'); if(saved) { try { highScore = JSON.parse(saved); } catch(e) {} } }
+    // ======================== INICIALIZACIÓN ========================
+    async function init() {
+        const loader = document.createElement('div');
+        loader.className = 'loader';
+        loader.innerText = 'CARGANDO...';
+        document.body.appendChild(loader);
+        await preloadImages();
+        await loadHighScoreFromDB(); // Cargar récord desde BD al iniciar
+        loader.remove();
+        
+        canvas = document.getElementById('gameCanvas');
+        ctx = canvas.getContext('2d');
+        updateCanvasSize();
+        window.addEventListener('resize', () => { updateCanvasSize(); });
+        player.reset();
+        loadAudioPrefs();
+        loadLanguage();
+        startRainEffect();
+        
+        document.getElementById('menuJugar').addEventListener('click', async () => { playClickSound(); await ensureAudioContext(); startGame(); });
+        document.getElementById('menuOpciones').addEventListener('click', () => { playClickSound(); document.getElementById('optionsScreen').classList.remove('hidden'); document.getElementById('pixelMenu').classList.add('hidden'); });
+        document.getElementById('menuSalir').addEventListener('click', () => { playClickSound(); window.location.href = "https://ellit.org/"; });
+        
+        const musicSlider = document.getElementById('musicVolume'), effectsSlider = document.getElementById('effectsVolume'), muteBtn = document.getElementById('muteAllBtn');
+        musicSlider.addEventListener('input', (e) => { musicVolume = e.target.value/100; document.getElementById('musicVolValue').innerText = e.target.value; if(!muted && bgMusicGain) bgMusicGain.gain.value = musicVolume; saveAudioPrefs(); if(currentLang === 'es') document.getElementById('musicVolLabel').innerHTML = `Volumen Música: <span id="musicVolValue">${e.target.value}</span>%`; else document.getElementById('musicVolLabel').innerHTML = `Music Volume: <span id="musicVolValue">${e.target.value}</span>%`; });
+        effectsSlider.addEventListener('input', (e) => { effectsVolume = e.target.value/100; document.getElementById('effectsVolValue').innerText = e.target.value; if(!muted && effectsGain) effectsGain.gain.value = effectsVolume; clickSound.volume = muted ? 0 : effectsVolume; saveAudioPrefs(); if(currentLang === 'es') document.getElementById('effectsVolLabel').innerHTML = `Volumen Efectos: <span id="effectsVolValue">${e.target.value}</span>%`; else document.getElementById('effectsVolLabel').innerHTML = `Effects Volume: <span id="effectsVolValue">${e.target.value}</span>%`; });
+        muteBtn.addEventListener('click', () => { muted = !muted; if(bgMusicGain) bgMusicGain.gain.value = muted ? 0 : musicVolume; if(effectsGain) effectsGain.gain.value = muted ? 0 : effectsVolume; clickSound.volume = muted ? 0 : effectsVolume; saveAudioPrefs(); const t = texts[currentLang]; muteBtn.innerText = muted ? t.unmuteBtn : t.muteBtn; muteBtn.style.background = muted ? '#2d5685' : '#aa2e2e'; });
+        document.getElementById('langEs').addEventListener('click', () => { playClickSound(); setLanguage('es'); });
+        document.getElementById('langEn').addEventListener('click', () => { playClickSound(); setLanguage('en'); });
+        document.getElementById('closeOptionsBtn').addEventListener('click', () => { playClickSound(); document.getElementById('optionsScreen').classList.add('hidden'); document.getElementById('pixelMenu').classList.remove('hidden'); });
+        
+        window.addEventListener('keydown', (e) => { if(e.key === 'ArrowLeft') keys.ArrowLeft = true; if(e.key === 'ArrowRight') keys.ArrowRight = true; if(e.key === 'p' || e.key === 'P') { if(gameState === 'playing') pauseGame(); else if(gameState === 'paused') resumeGame(); e.preventDefault(); } });
+        window.addEventListener('keyup', (e) => { if(e.key === 'ArrowLeft') keys.ArrowLeft = false; if(e.key === 'ArrowRight') keys.ArrowRight = false; });
+        
+        document.getElementById('resumeButton').onclick = () => { playClickSound(); resumeGame(); };
+        document.getElementById('restartButton').onclick = () => { playClickSound(); startGame(); };
+        document.getElementById('playAgainButton').onclick = () => { playClickSound(); startGame(); };
+        document.getElementById('menuButton').onclick = () => { playClickSound(); returnToMenu(); };
+        document.getElementById('menuButton2').onclick = () => { playClickSound(); returnToMenu(); };
+        
+        initTouchControls();
+        canvas.style.display = 'none';
+        uiContainer.style.display = 'none';
+        
+        function animate() { updateGame(); draw(); requestAnimationFrame(animate); }
+        animate();
+    }
     
-    // ======================== CONTROL TÁCTIL ========================
     function initTouchControls() {
         const canvasElem = canvas;
         function handleTouch(e) {
@@ -1022,7 +1127,6 @@
         canvasElem.addEventListener('touchcancel', handleTouchEnd);
     }
     
-    // ======================== LLUVIA DE COMIDA EN EL MENÚ ========================
     let rainInterval = null;
     function createFoodElement(food) {
         const div = document.createElement('div');
@@ -1061,54 +1165,6 @@
                 if(allItems.length > 80) allItems[0].remove();
             }
         }, 400);
-    }
-    
-    // ======================== INICIALIZACIÓN ========================
-    async function init() {
-        const loader = document.createElement('div');
-        loader.className = 'loader';
-        loader.innerText = 'CARGANDO...';
-        document.body.appendChild(loader);
-        await preloadImages();
-        loader.remove();
-        
-        canvas = document.getElementById('gameCanvas');
-        ctx = canvas.getContext('2d');
-        updateCanvasSize();
-        window.addEventListener('resize', () => { updateCanvasSize(); });
-        player.reset();
-        loadHighScore();
-        loadAudioPrefs();
-        loadLanguage();
-        startRainEffect();
-        
-        document.getElementById('menuJugar').addEventListener('click', async () => { playClickSound(); await ensureAudioContext(); startGame(); });
-        document.getElementById('menuOpciones').addEventListener('click', () => { playClickSound(); document.getElementById('optionsScreen').classList.remove('hidden'); document.getElementById('pixelMenu').classList.add('hidden'); });
-        document.getElementById('menuSalir').addEventListener('click', () => { playClickSound(); window.location.href = "https://ellit.org/"; });
-        
-        const musicSlider = document.getElementById('musicVolume'), effectsSlider = document.getElementById('effectsVolume'), muteBtn = document.getElementById('muteAllBtn');
-        musicSlider.addEventListener('input', (e) => { musicVolume = e.target.value/100; document.getElementById('musicVolValue').innerText = e.target.value; if(!muted && bgMusicGain) bgMusicGain.gain.value = musicVolume; saveAudioPrefs(); if(currentLang === 'es') document.getElementById('musicVolLabel').innerHTML = `Volumen Música: <span id="musicVolValue">${e.target.value}</span>%`; else document.getElementById('musicVolLabel').innerHTML = `Music Volume: <span id="musicVolValue">${e.target.value}</span>%`; });
-        effectsSlider.addEventListener('input', (e) => { effectsVolume = e.target.value/100; document.getElementById('effectsVolValue').innerText = e.target.value; if(!muted && effectsGain) effectsGain.gain.value = effectsVolume; clickSound.volume = muted ? 0 : effectsVolume; saveAudioPrefs(); if(currentLang === 'es') document.getElementById('effectsVolLabel').innerHTML = `Volumen Efectos: <span id="effectsVolValue">${e.target.value}</span>%`; else document.getElementById('effectsVolLabel').innerHTML = `Effects Volume: <span id="effectsVolValue">${e.target.value}</span>%`; });
-        muteBtn.addEventListener('click', () => { muted = !muted; if(bgMusicGain) bgMusicGain.gain.value = muted ? 0 : musicVolume; if(effectsGain) effectsGain.gain.value = muted ? 0 : effectsVolume; clickSound.volume = muted ? 0 : effectsVolume; saveAudioPrefs(); const t = texts[currentLang]; muteBtn.innerText = muted ? t.unmuteBtn : t.muteBtn; muteBtn.style.background = muted ? '#2d5685' : '#aa2e2e'; });
-        document.getElementById('langEs').addEventListener('click', () => { playClickSound(); setLanguage('es'); });
-        document.getElementById('langEn').addEventListener('click', () => { playClickSound(); setLanguage('en'); });
-        document.getElementById('closeOptionsBtn').addEventListener('click', () => { playClickSound(); document.getElementById('optionsScreen').classList.add('hidden'); document.getElementById('pixelMenu').classList.remove('hidden'); });
-        
-        window.addEventListener('keydown', (e) => { if(e.key === 'ArrowLeft') keys.ArrowLeft = true; if(e.key === 'ArrowRight') keys.ArrowRight = true; if(e.key === 'p' || e.key === 'P') { if(gameState === 'playing') pauseGame(); else if(gameState === 'paused') resumeGame(); e.preventDefault(); } });
-        window.addEventListener('keyup', (e) => { if(e.key === 'ArrowLeft') keys.ArrowLeft = false; if(e.key === 'ArrowRight') keys.ArrowRight = false; });
-        
-        document.getElementById('resumeButton').onclick = () => { playClickSound(); resumeGame(); };
-        document.getElementById('restartButton').onclick = () => { playClickSound(); startGame(); };
-        document.getElementById('playAgainButton').onclick = () => { playClickSound(); startGame(); };
-        document.getElementById('menuButton').onclick = () => { playClickSound(); returnToMenu(); };
-        document.getElementById('menuButton2').onclick = () => { playClickSound(); returnToMenu(); };
-        
-        initTouchControls();
-        canvas.style.display = 'none';
-        uiContainer.style.display = 'none';
-        
-        function animate() { updateGame(); draw(); requestAnimationFrame(animate); }
-        animate();
     }
     
     init();
