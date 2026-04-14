@@ -221,7 +221,6 @@
             z-index: 20;
             width: 90%;
         }
-        /* TÍTULO CON CONTORNO NEGRO SÓLIDO */
         .title {
             font-size: 30px;
             color: white;
@@ -231,7 +230,6 @@
             text-stroke: 2px black;
             text-shadow: none;
         }
-        /* BOTONES DEL MENÚ SIN SOMBREADO */
         .menu-button {
             display: block;
             margin: 25px auto;
@@ -304,7 +302,6 @@
             .options-panel { padding: 15px; }
             .option-row label { font-size: 10px; }
         }
-        #touchControls { display: none; }
         .loader {
             position: fixed;
             top: 50%;
@@ -398,15 +395,12 @@
 
 <script>
     // ======================== SISTEMA DE SONIDOS ========================
-    // Sonido de clic desde archivo MP3 (externo)
     let clickSound = new Audio();
-    clickSound.src = "sounds/Botonsound.mp3";  // Cambia la ruta si es necesario
+    clickSound.src = "sounds/Botonsound.mp3";
     clickSound.preload = "auto";
-    // Volumen inicial (se actualizará con las preferencias)
     let effectsVolume = 0.5;
     let muted = false;
     
-    // Música de fondo (Web Audio)
     let audioCtx = null, bgMusicGain = null, isAudioAllowed = false, musicInterval = null;
     let musicVolume = 0.5;
     let menuMusicActive = false;
@@ -430,7 +424,6 @@
                 document.getElementById('muteAllBtn').textContent = '🔇 SILENCIAR';
                 document.getElementById('muteAllBtn').style.background = '#aa2e2e';
             }
-            // Aplicar volumen al sonido de clic
             clickSound.volume = muted ? 0 : effectsVolume;
         } catch(e) {}
     }
@@ -442,16 +435,12 @@
         clickSound.volume = muted ? 0 : effectsVolume;
     }
     
-    // Función para reproducir el clic desde MP3
     function playClickSound() {
         if (muted) return;
-        // Reiniciar el audio para poder reproducirlo múltiples veces seguidas
         clickSound.currentTime = 0;
         clickSound.play().catch(e => console.log("Error reproduciendo click:", e));
     }
     
-    // El resto de sonidos (inicio, recoger, daño, game over) siguen usando Web Audio
-    // (para no complicar, se mantienen igual que antes)
     function playStartSound() {
         if (!audioCtx || !isAudioAllowed || muted) return;
         const now = audioCtx.currentTime;
@@ -535,7 +524,6 @@
         }
     }
     
-    // Música de fondo (solo menú)
     function startMenuMusic() {
         if (musicInterval) stopMenuMusic();
         if (!audioCtx || !isAudioAllowed) return;
@@ -565,7 +553,6 @@
         menuMusicActive = false;
     }
     
-    // Inicializar Web Audio (para música y otros efectos)
     let effectsGain = null;
     function initAudio() {
         if (audioCtx) return;
@@ -629,7 +616,9 @@
     ];
     const ALL_FOODS = [...GOOD_FOODS, ...BAD_FOODS];
     
-    let playerSpriteImg = null;
+    let playerStaticImg = null;
+    let backgroundImg = null;  // Imagen de fondo del juego
+    
     function preloadImages() {
         const promises = ALL_FOODS.map(food => {
             return new Promise((resolve) => {
@@ -643,16 +632,27 @@
                 food.loadedImg = img;
             });
         });
-        const playerSpritePromise = new Promise((resolve) => {
-            playerSpriteImg = new Image();
-            playerSpriteImg.onload = () => resolve(true);
-            playerSpriteImg.onerror = () => {
-                console.warn("No se pudo cargar el spritesheet del jugador (img/player_sprite.png). Se usará rectángulo de respaldo.");
+        const playerImgPromise = new Promise((resolve) => {
+            playerStaticImg = new Image();
+            playerStaticImg.onload = () => resolve(true);
+            playerStaticImg.onerror = () => {
+                console.warn("No se pudo cargar la imagen del jugador (img/lobo comiendo7.png). Se usará rectángulo de respaldo.");
                 resolve(false);
             };
-            playerSpriteImg.src = "img/player_sprite.png";
+            playerStaticImg.src = "img/lobo comiendo7.png";
         });
-        promises.push(playerSpritePromise);
+        // Cargar imagen de fondo del juego
+        const backgroundPromise = new Promise((resolve) => {
+            backgroundImg = new Image();
+            backgroundImg.onload = () => resolve(true);
+            backgroundImg.onerror = () => {
+                console.warn("No se pudo cargar la imagen de fondo (img/fondo.png). Se usará el fondo original.");
+                resolve(false);
+            };
+            backgroundImg.src = "img/fondo.png"; // Cambia esta ruta si tu imagen tiene otro nombre
+        });
+        promises.push(playerImgPromise);
+        promises.push(backgroundPromise);
         return Promise.all(promises);
     }
     
@@ -717,29 +717,36 @@
         canvas.style.width = `${gameWidth}px`; canvas.style.height = `${gameHeight}px`;
         if(player) {
             player.x = Math.min(Math.max(player.x, 0), gameWidth - player.width);
-            player.y = gameHeight - 90;
+            player.y = gameHeight - player.height - 10;
         }
     }
     
-    // ======================== VARIABLES DEL JUEGO (con sprite animado) ========================
+    // ======================== VARIABLES DEL JUEGO ========================
     let gameState = 'menu';
     let player = {
-        x: 0, y: 0, width: 70, height: 35, speed: 7, score: 0, health: 100, maxHealth: 100,
-        spriteImg: null,
-        numFrames: 4,
-        frameWidth: 0,
-        frameHeight: 0,
-        currentFrame: 0,
-        animFrameDelay: 6,
-        lastFrameChange: 0,
-        update() { },
+        x: 0, y: 0, width: 140, height: 140, speed: 7, score: 0, health: 100, maxHealth: 100,
         move(dir) {
             let step = this.speed;
             if(dir === 'left') this.x -= step;
             if(dir === 'right') this.x += step;
             this.x = Math.max(0, Math.min(gameWidth - this.width, this.x));
         },
-        getBounds() { return { x: this.x-10, y: this.y-10, width: this.width+20, height: this.height+20 }; },
+        // Hitbox precisa con porcentajes relativos al tamaño del sprite
+        getBounds() {
+            const widthPercent = 0.55;
+            const heightPercent = 0.6;
+            const offsetYPercent = 0.25;
+            const hitboxWidth = this.width * widthPercent;
+            const hitboxHeight = this.height * heightPercent;
+            const offsetX = (this.width - hitboxWidth) / 2;
+            const offsetY = this.height * offsetYPercent;
+            return {
+                x: this.x + offsetX,
+                y: this.y + offsetY,
+                width: hitboxWidth,
+                height: hitboxHeight
+            };
+        },
         takeDamage(amt) { 
             this.health = Math.max(0, this.health - Math.abs(amt)); 
             showDamage(); 
@@ -750,21 +757,9 @@
         },
         reset() {
             this.x = gameWidth/2 - this.width/2;
-            this.y = gameHeight - 90;
+            this.y = gameHeight - this.height - 10;
             this.score = 0;
             this.health = this.maxHealth;
-            this.currentFrame = 0;
-            this.lastFrameChange = 0;
-        },
-        initSprite(img) {
-            this.spriteImg = img;
-            if (img && img.complete && img.naturalWidth > 0) {
-                this.frameWidth = img.naturalWidth / this.numFrames;
-                this.frameHeight = img.naturalHeight;
-            } else {
-                this.frameWidth = this.width;
-                this.frameHeight = this.height;
-            }
         }
     };
     
@@ -847,7 +842,6 @@
     
     function updateGame() {
         if(gameState !== 'playing') return;
-        player.update();
         if(keys.ArrowLeft) player.move('left');
         if(keys.ArrowRight) player.move('right');
         spawnCounter++;
@@ -960,37 +954,44 @@
     
     // ======================== DIBUJO ========================
     function drawBackground() {
-        const grad = ctx.createLinearGradient(0,0,0,gameHeight);
-        grad.addColorStop(0,'#0a0a20'); grad.addColorStop(1,'#151530');
-        ctx.fillStyle=grad; ctx.fillRect(0,0,gameWidth,gameHeight);
-        ctx.strokeStyle = '#2a4a6a';
-        for(let i=0;i<gameWidth+gameHeight;i+=50) { ctx.beginPath(); ctx.moveTo(i%gameWidth, 0); ctx.lineTo((i+50)%gameWidth, gameHeight); ctx.stroke(); }
-        ctx.fillStyle = '#2a4a6a'; ctx.fillRect(0, gameHeight-15, gameWidth, 15);
-    }
-    function drawPlayer() {
-        if (player.spriteImg && player.spriteImg.complete && player.spriteImg.naturalWidth > 0 && player.frameWidth > 0) {
-            if (gameTimer - player.lastFrameChange >= player.animFrameDelay) {
-                player.currentFrame = (player.currentFrame + 1) % player.numFrames;
-                player.lastFrameChange = gameTimer;
+        if (backgroundImg && backgroundImg.complete && backgroundImg.naturalWidth > 0) {
+            ctx.drawImage(backgroundImg, 0, 0, gameWidth, gameHeight);
+        } else {
+            const grad = ctx.createLinearGradient(0,0,0,gameHeight);
+            grad.addColorStop(0,'#0a0a20'); grad.addColorStop(1,'#151530');
+            ctx.fillStyle=grad; ctx.fillRect(0,0,gameWidth,gameHeight);
+            ctx.strokeStyle = '#2a4a6a';
+            for(let i=0;i<gameWidth+gameHeight;i+=50) { 
+                ctx.beginPath(); 
+                ctx.moveTo(i%gameWidth, 0); 
+                ctx.lineTo((i+50)%gameWidth, gameHeight); 
+                ctx.stroke(); 
             }
-            const sx = player.currentFrame * player.frameWidth;
-            const sy = 0;
-            const sw = player.frameWidth;
-            const sh = player.frameHeight;
-            ctx.drawImage(player.spriteImg, sx, sy, sw, sh, player.x, player.y, player.width, player.height);
+            ctx.fillStyle = '#2a4a6a'; 
+            ctx.fillRect(0, gameHeight-15, gameWidth, 15);
+        }
+    }
+    
+    function drawPlayer() {
+        if (playerStaticImg && playerStaticImg.complete && playerStaticImg.naturalWidth > 0) {
+            ctx.drawImage(playerStaticImg, player.x, player.y, player.width, player.height);
         } else {
             ctx.fillStyle = '#4682b4';
             ctx.fillRect(player.x, player.y, player.width, player.height);
             ctx.fillStyle = '#f0f0f0';
-            ctx.beginPath(); ctx.arc(player.x+player.width/2-5, player.y-16, 3, 0, Math.PI*2); ctx.fill();
-            ctx.beginPath(); ctx.arc(player.x+player.width/2+5, player.y-16, 3, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(player.x+player.width/2-12, player.y-18, 6, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(player.x+player.width/2+12, player.y-18, 6, 0, Math.PI*2); ctx.fill();
             ctx.fillStyle = '#111';
-            ctx.beginPath(); ctx.arc(player.x+player.width/2-5, player.y-16, 1.5, 0, Math.PI*2); ctx.fill();
-            ctx.beginPath(); ctx.arc(player.x+player.width/2+5, player.y-16, 1.5, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(player.x+player.width/2-12, player.y-18, 3, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(player.x+player.width/2+12, player.y-18, 3, 0, Math.PI*2); ctx.fill();
         }
     }
+    
     function draw() { 
         if(gameState === 'playing') { 
+            // LIMPIAR COMPLETAMENTE EL CANVAS ANTES DE DIBUJAR CADA FRAME
+            ctx.clearRect(0, 0, gameWidth, gameHeight);
+            
             drawBackground(); 
             for(let obj of fallingObjects) obj.draw(ctx); 
             drawPlayer(); 
@@ -1071,20 +1072,11 @@
         await preloadImages();
         loader.remove();
         
-        if (playerSpriteImg && playerSpriteImg.complete && playerSpriteImg.naturalWidth > 0) {
-            player.initSprite(playerSpriteImg);
-        } else {
-            player.frameWidth = player.width;
-            player.frameHeight = player.height;
-            player.spriteImg = null;
-        }
-        
         canvas = document.getElementById('gameCanvas');
         ctx = canvas.getContext('2d');
         updateCanvasSize();
         window.addEventListener('resize', () => { updateCanvasSize(); });
-        player.y = gameHeight - 90;
-        player.x = gameWidth/2 - player.width/2;
+        player.reset();
         loadHighScore();
         loadAudioPrefs();
         loadLanguage();
@@ -1092,7 +1084,6 @@
         
         document.getElementById('menuJugar').addEventListener('click', async () => { playClickSound(); await ensureAudioContext(); startGame(); });
         document.getElementById('menuOpciones').addEventListener('click', () => { playClickSound(); document.getElementById('optionsScreen').classList.remove('hidden'); document.getElementById('pixelMenu').classList.add('hidden'); });
-        // MODIFICACIÓN: Botón SALIR redirige a https://ellit.org/
         document.getElementById('menuSalir').addEventListener('click', () => { playClickSound(); window.location.href = "https://ellit.org/"; });
         
         const musicSlider = document.getElementById('musicVolume'), effectsSlider = document.getElementById('effectsVolume'), muteBtn = document.getElementById('muteAllBtn');
