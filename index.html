@@ -6,7 +6,7 @@
     <title>Fit Frenzy - Arcade Fitness Game</title>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <style>
-        /* ========== ESTILOS (sin cambios relevantes) ========== */
+        /* ========== ESTILOS (sin cambios) ========== */
         * {
             margin: 0;
             padding: 0;
@@ -315,29 +315,6 @@
             text-align: center;
             border-radius: 10px;
         }
-        /* Estilos para el formulario de nuevo récord */
-        .new-record-form {
-            background: rgba(0,0,0,0.9);
-            border: 2px solid gold;
-            border-radius: 20px;
-            padding: 20px;
-            margin-top: 20px;
-            text-align: center;
-        }
-        .new-record-form input {
-            font-family: 'Press Start 2P', monospace;
-            padding: 10px;
-            margin: 10px;
-            background: #2a2a3a;
-            border: 1px solid #3a6ea5;
-            color: white;
-            text-align: center;
-        }
-        .new-record-form button {
-            min-width: 120px;
-            padding: 8px 16px;
-            font-size: 10px;
-        }
     </style>
 </head>
 <body>
@@ -409,22 +386,15 @@
             <div id="bestScoreLabel">🏆 MEJOR PUNTUACIÓN 🏆</div>
             <div id="recordScore" style="font-size: 1.8rem;">0</div>
             <div id="recordDetails"></div>
-            <div id="recordPlayerName" style="margin-top: 8px; font-size: 0.7rem;"></div>
         </div>
         <div id="newRecordMessage" style="display: none; background: gold; color:black; padding: 8px; border-radius: 20px; margin: 8px;">🎉 NUEVO RÉCORD 🎉</div>
-        <!-- Formulario para nombre del nuevo récord (inicialmente oculto) -->
-        <div id="newRecordForm" class="new-record-form" style="display: none;">
-            <p>¡INGRESA TU NOMBRE!</p>
-            <input type="text" id="playerNameInput" maxlength="20" placeholder="NOMBRE" autocomplete="off">
-            <button id="saveRecordBtn">GUARDAR</button>
-        </div>
         <button id="playAgainButton">JUGAR DE NUEVO</button>
         <button id="menuButton2">MENÚ PRINCIPAL</button>
     </div>
 </div>
 
 <script>
-    // ======================== SISTEMA DE SONIDOS (sin cambios) ========================
+    // ======================== SISTEMA DE SONIDOS ========================
     let clickSound = new Audio();
     clickSound.src = "sounds/Botonsound.mp3";
     clickSound.preload = "auto";
@@ -647,7 +617,7 @@
     const ALL_FOODS = [...GOOD_FOODS, ...BAD_FOODS];
     
     let playerStaticImg = null;
-    let backgroundImg = null;
+    let backgroundImg = null;  // Imagen de fondo del juego
     
     function preloadImages() {
         const promises = ALL_FOODS.map(food => {
@@ -671,6 +641,7 @@
             };
             playerStaticImg.src = "img/lobo comiendo9.png";
         });
+        // Cargar imagen de fondo del juego
         const backgroundPromise = new Promise((resolve) => {
             backgroundImg = new Image();
             backgroundImg.onload = () => resolve(true);
@@ -678,7 +649,7 @@
                 console.warn("No se pudo cargar la imagen de fondo (img/fondo4.png). Se usará el fondo original.");
                 resolve(false);
             };
-            backgroundImg.src = "img/fondo4.png";
+            backgroundImg.src = "img/fondo4.png"; // Cambia esta ruta si tu imagen tiene otro nombre
         });
         promises.push(playerImgPromise);
         promises.push(backgroundPromise);
@@ -760,6 +731,7 @@
             if(dir === 'right') this.x += step;
             this.x = Math.max(0, Math.min(gameWidth - this.width, this.x));
         },
+        // Hitbox precisa con porcentajes relativos al tamaño del sprite
         getBounds() {
             const widthPercent = 0.55;
             const heightPercent = 0.6;
@@ -792,7 +764,7 @@
     };
     
     let fallingObjects = [], spawnCounter = 0, spawnRate = 70, gameTimer = 0, gameIntensity = 1.0, objectsPerSpawn = 1;
-    let highScore = { score: 0, intensity: 1.0, time: 0, player_name: "---" };
+    let highScore = { score: 0, intensity: 1.0, time: 0 };
     let keys = { ArrowLeft: false, ArrowRight: false };
     let nextHealthThreshold = 100;
     
@@ -917,129 +889,25 @@
         if(player.health <= 0) gameOver();
     }
     
-    // ======================== FUNCIONES PARA BASE DE DATOS ========================
-    async function loadHighScoreFromDB() {
-        try {
-            const response = await fetch('get_best_score.php');
-            const data = await response.json();
-            if (data.success) {
-                highScore = {
-                    score: data.score,
-                    intensity: data.intensity,
-                    time: data.time,
-                    player_name: data.player_name || "---"
-                };
-            } else {
-                highScore = { score: 0, intensity: 1.0, time: 0, player_name: "---" };
-            }
-            // Actualizar UI del récord (si está visible)
-            document.getElementById('recordScore').textContent = highScore.score;
-            let recMins = Math.floor(highScore.time / 60), recSecs = highScore.time % 60;
-            document.getElementById('recordDetails').innerHTML = `Intensidad: ${highScore.intensity.toFixed(1)}x | Tiempo: ${recMins.toString().padStart(2,'0')}:${recSecs.toString().padStart(2,'0')}`;
-            document.getElementById('recordPlayerName').innerHTML = `👑 ${highScore.player_name} 👑`;
-        } catch (error) {
-            console.error("Error cargando récord desde BD:", error);
-            highScore = { score: 0, intensity: 1.0, time: 0, player_name: "---" };
-        }
-    }
-    
-    async function saveHighScoreToDB(name, score, intensity, timeSec) {
-        try {
-            const response = await fetch('update_best_score.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ player_name: name, score: score, intensity: intensity, time: timeSec })
-            });
-            const data = await response.json();
-            if (data.success) {
-                // Actualizar variable local
-                highScore = { score: score, intensity: intensity, time: timeSec, player_name: name };
-                // Actualizar UI principal
-                document.getElementById('recordScore').textContent = highScore.score;
-                let recMins = Math.floor(highScore.time / 60), recSecs = highScore.time % 60;
-                document.getElementById('recordDetails').innerHTML = `Intensidad: ${highScore.intensity.toFixed(1)}x | Tiempo: ${recMins.toString().padStart(2,'0')}:${recSecs.toString().padStart(2,'0')}`;
-                document.getElementById('recordPlayerName').innerHTML = `👑 ${highScore.player_name} 👑`;
-                return true;
-            }
-            return false;
-        } catch (error) {
-            console.error("Error guardando récord en BD:", error);
-            return false;
-        }
-    }
-    
-    // ======================== GAME OVER CON NOMBRE ========================
-    let pendingNewRecord = false;
-    let finalScoreData = null;
-    
-    async function gameOver() {
+    function gameOver() {
         gameState = 'gameover';
         playGameOverSound();
-        const finalScore = player.score;
-        const finalIntensity = gameIntensity;
-        const finalTimeSec = Math.floor(gameTimer / 60);
-        
-        finalScoreData = { score: finalScore, intensity: finalIntensity, time: finalTimeSec };
-        
-        // Mostrar la puntuación actual en la pantalla
+        const finalScore = player.score, finalIntensity = gameIntensity, finalTimeSec = Math.floor(gameTimer/60);
         document.getElementById('finalScore').textContent = finalScore;
-        document.getElementById('finalIntensity').textContent = finalIntensity.toFixed(1) + 'x';
-        let mins = Math.floor(finalTimeSec / 60), secs = finalTimeSec % 60;
-        document.getElementById('finalTime').textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-        
-        // Verificar si es nuevo récord (comparar con highScore cargado desde BD)
-        const isNewRecord = finalScore > highScore.score;
-        
-        if (isNewRecord) {
-            // Mostrar el formulario para ingresar nombre
-            document.getElementById('newRecordMessage').style.display = 'block';
-            document.getElementById('newRecordForm').style.display = 'block';
-            // Deshabilitar botones de reinicio/menú hasta que se guarde
-            document.getElementById('playAgainButton').disabled = true;
-            document.getElementById('menuButton2').disabled = true;
-            pendingNewRecord = true;
-        } else {
-            document.getElementById('newRecordMessage').style.display = 'none';
-            document.getElementById('newRecordForm').style.display = 'none';
-            document.getElementById('playAgainButton').disabled = false;
-            document.getElementById('menuButton2').disabled = false;
-        }
-        
-        // Actualizar la UI del récord con el mejor actual (puede ser el mismo o el anterior)
+        document.getElementById('finalIntensity').textContent = finalIntensity.toFixed(1)+'x';
+        let mins = Math.floor(finalTimeSec/60), secs = finalTimeSec%60;
+        document.getElementById('finalTime').textContent = `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
+        let isNew = false;
+        if(finalScore > highScore.score) { highScore = { score: finalScore, intensity: finalIntensity, time: finalTimeSec }; localStorage.setItem('fitFrenzyHigh', JSON.stringify(highScore)); isNew = true; }
         document.getElementById('recordScore').textContent = highScore.score;
-        let recMins = Math.floor(highScore.time / 60), recSecs = highScore.time % 60;
-        document.getElementById('recordDetails').innerHTML = `Intensidad: ${highScore.intensity.toFixed(1)}x | Tiempo: ${recMins.toString().padStart(2, '0')}:${recSecs.toString().padStart(2, '0')}`;
-        document.getElementById('recordPlayerName').innerHTML = `👑 ${highScore.player_name} 👑`;
-        
+        let recMins = Math.floor(highScore.time/60), recSecs = highScore.time%60;
+        document.getElementById('recordDetails').innerHTML = `Intensidad: ${highScore.intensity.toFixed(1)}x | Tiempo: ${recMins.toString().padStart(2,'0')}:${recSecs.toString().padStart(2,'0')}`;
+        document.getElementById('newRecordMessage').style.display = isNew ? 'block' : 'none';
         document.getElementById('gameOverScreen').classList.remove('hidden');
         uiContainer.style.display = 'none';
         canvas.style.display = 'none';
     }
     
-    // Evento para guardar el récord con nombre
-    document.getElementById('saveRecordBtn').addEventListener('click', async () => {
-        if (!pendingNewRecord || !finalScoreData) return;
-        const playerName = document.getElementById('playerNameInput').value.trim();
-        if (playerName === "") {
-            alert("Por favor ingresa tu nombre");
-            return;
-        }
-        // Guardar en BD
-        await saveHighScoreToDB(playerName, finalScoreData.score, finalScoreData.intensity, finalScoreData.time);
-        // Ocultar formulario y mostrar mensaje de éxito
-        document.getElementById('newRecordForm').style.display = 'none';
-        document.getElementById('newRecordMessage').style.display = 'block';
-        document.getElementById('newRecordMessage').innerHTML = "🎉 RÉCORD GUARDADO 🎉";
-        // Rehabilitar botones
-        document.getElementById('playAgainButton').disabled = false;
-        document.getElementById('menuButton2').disabled = false;
-        pendingNewRecord = false;
-    });
-    
-    // Sobrescribir la función global
-    window.gameOver = gameOver;
-    
-    // ======================== RESTO DEL CÓDIGO (sin cambios relevantes) ========================
     function resetGame() { 
         player.reset(); 
         fallingObjects = []; 
@@ -1121,12 +989,16 @@
     
     function draw() { 
         if(gameState === 'playing') { 
+            // LIMPIAR COMPLETAMENTE EL CANVAS ANTES DE DIBUJAR CADA FRAME
             ctx.clearRect(0, 0, gameWidth, gameHeight);
+            
             drawBackground(); 
             for(let obj of fallingObjects) obj.draw(ctx); 
             drawPlayer(); 
         } 
     }
+    
+    function loadHighScore() { const saved = localStorage.getItem('fitFrenzyHigh'); if(saved) { try { highScore = JSON.parse(saved); } catch(e) {} } }
     
     // ======================== CONTROL TÁCTIL ========================
     function initTouchControls() {
@@ -1198,7 +1070,6 @@
         loader.innerText = 'CARGANDO...';
         document.body.appendChild(loader);
         await preloadImages();
-        await loadHighScoreFromDB(); // Cargar récord desde BD al iniciar
         loader.remove();
         
         canvas = document.getElementById('gameCanvas');
@@ -1206,6 +1077,7 @@
         updateCanvasSize();
         window.addEventListener('resize', () => { updateCanvasSize(); });
         player.reset();
+        loadHighScore();
         loadAudioPrefs();
         loadLanguage();
         startRainEffect();
