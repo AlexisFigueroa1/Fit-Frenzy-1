@@ -1092,7 +1092,8 @@
         
         document.getElementById('menuJugar').addEventListener('click', async () => { playClickSound(); await ensureAudioContext(); startGame(); });
         document.getElementById('menuOpciones').addEventListener('click', () => { playClickSound(); document.getElementById('optionsScreen').classList.remove('hidden'); document.getElementById('pixelMenu').classList.add('hidden'); });
-        document.getElementById('menuSalir').addEventListener('click', () => { playClickSound(); alert("Gracias por jugar Fit Frenzy"); });
+        // MODIFICACIÓN: Botón SALIR redirige a https://ellit.org/
+        document.getElementById('menuSalir').addEventListener('click', () => { playClickSound(); window.location.href = "https://ellit.org/"; });
         
         const musicSlider = document.getElementById('musicVolume'), effectsSlider = document.getElementById('effectsVolume'), muteBtn = document.getElementById('muteAllBtn');
         musicSlider.addEventListener('input', (e) => { musicVolume = e.target.value/100; document.getElementById('musicVolValue').innerText = e.target.value; if(!muted && bgMusicGain) bgMusicGain.gain.value = musicVolume; saveAudioPrefs(); if(currentLang === 'es') document.getElementById('musicVolLabel').innerHTML = `Volumen Música: <span id="musicVolValue">${e.target.value}</span>%`; else document.getElementById('musicVolLabel').innerHTML = `Music Volume: <span id="musicVolValue">${e.target.value}</span>%`; });
