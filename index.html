@@ -401,9 +401,14 @@
     let effectsVolume = 0.5;
     let muted = false;
     
-    let audioCtx = null, bgMusicGain = null, isAudioAllowed = false, musicInterval = null;
+    let audioCtx = null, bgMusicGain = null, isAudioAllowed = false;
     let musicVolume = 0.5;
     let menuMusicActive = false;
+    
+    // ===== NUEVA MÚSICA DE FONDO MP3 =====
+    let backgroundMusic = new Audio("musica de fondo.mp3");
+    backgroundMusic.loop = true;
+    backgroundMusic.preload = "auto";
     
     function loadAudioPrefs() {
         try {
@@ -425,14 +430,16 @@
                 document.getElementById('muteAllBtn').style.background = '#aa2e2e';
             }
             clickSound.volume = muted ? 0 : effectsVolume;
+            // Aplicar volumen a la música de fondo
+            backgroundMusic.volume = muted ? 0 : musicVolume;
         } catch(e) {}
     }
     function saveAudioPrefs() {
         localStorage.setItem('fitFrenzy_musicVol', musicVolume);
         localStorage.setItem('fitFrenzy_effectsVol', effectsVolume);
         localStorage.setItem('fitFrenzy_muted', muted);
-        if (bgMusicGain) bgMusicGain.gain.value = muted ? 0 : musicVolume;
         clickSound.volume = muted ? 0 : effectsVolume;
+        backgroundMusic.volume = muted ? 0 : musicVolume;
     }
     
     function playClickSound() {
@@ -524,51 +531,37 @@
         }
     }
     
+    // Música de fondo (MP3)
     function startMenuMusic() {
-        if (musicInterval) stopMenuMusic();
-        if (!audioCtx || !isAudioAllowed) return;
-        if (gameState !== 'menu') return;
-        let step = 0;
-        const notes = [261.63, 293.66, 329.63, 261.63, 261.63, 293.66, 329.63, 261.63];
-        musicInterval = setInterval(() => {
-            if (!audioCtx || audioCtx.state !== 'running') return;
-            if (gameState !== 'menu') return;
-            const now = audioCtx.currentTime;
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = 'triangle';
-            osc.frequency.value = notes[step % notes.length];
-            gain.gain.value = 0.07;
-            osc.connect(gain);
-            gain.connect(bgMusicGain);
-            osc.start();
-            gain.gain.exponentialRampToValueAtTime(0.00001, now + 0.4);
-            osc.stop(now + 0.4);
-            step++;
-        }, 500);
+        if (!isAudioAllowed) return;
+        if (!backgroundMusic.paused && menuMusicActive) return;
+        backgroundMusic.currentTime = 0;
+        backgroundMusic.play().catch(e => console.log("Error reproduciendo música:", e));
         menuMusicActive = true;
     }
     function stopMenuMusic() {
-        if (musicInterval) { clearInterval(musicInterval); musicInterval = null; }
+        if (!backgroundMusic.paused) {
+            backgroundMusic.pause();
+        }
         menuMusicActive = false;
     }
     
+    // Inicializar Web Audio solo para efectos
     let effectsGain = null;
     function initAudio() {
         if (audioCtx) return;
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        bgMusicGain = audioCtx.createGain();
         effectsGain = audioCtx.createGain();
-        bgMusicGain.gain.value = muted ? 0 : musicVolume;
         effectsGain.gain.value = muted ? 0 : effectsVolume;
-        bgMusicGain.connect(audioCtx.destination);
         effectsGain.connect(audioCtx.destination);
     }
     async function ensureAudioContext() {
         if (!audioCtx) initAudio();
         if (audioCtx.state === 'suspended') await audioCtx.resume();
         isAudioAllowed = true;
-        if (gameState === 'menu' && !menuMusicActive) startMenuMusic();
+        if (gameState === 'menu' && !menuMusicActive) {
+            startMenuMusic();
+        }
     }
     
     function enableAudioAndPlayClick(e) {
@@ -649,7 +642,7 @@
                 console.warn("No se pudo cargar la imagen de fondo (img/fondo4.png). Se usará el fondo original.");
                 resolve(false);
             };
-            backgroundImg.src = "img/fondo4.png"; // Cambia esta ruta si tu imagen tiene otro nombre
+            backgroundImg.src = "img/fondo4.png";
         });
         promises.push(playerImgPromise);
         promises.push(backgroundPromise);
@@ -731,7 +724,6 @@
             if(dir === 'right') this.x += step;
             this.x = Math.max(0, Math.min(gameWidth - this.width, this.x));
         },
-        // Hitbox precisa con porcentajes relativos al tamaño del sprite
         getBounds() {
             const widthPercent = 0.55;
             const heightPercent = 0.6;
@@ -906,6 +898,7 @@
         document.getElementById('gameOverScreen').classList.remove('hidden');
         uiContainer.style.display = 'none';
         canvas.style.display = 'none';
+        // Opcional: no detener la música de fondo al game over
     }
     
     function resetGame() { 
@@ -926,7 +919,7 @@
         resetGame();
         gameState = 'playing';
         playStartSound();
-        if (menuMusicActive) stopMenuMusic();
+        // La música de fondo continúa sonando, no la detenemos
         document.getElementById('pixelMenu').classList.add('hidden');
         canvas.style.display = 'block';
         uiContainer.style.display = 'flex';
@@ -989,9 +982,7 @@
     
     function draw() { 
         if(gameState === 'playing') { 
-            // LIMPIAR COMPLETAMENTE EL CANVAS ANTES DE DIBUJAR CADA FRAME
             ctx.clearRect(0, 0, gameWidth, gameHeight);
-            
             drawBackground(); 
             for(let obj of fallingObjects) obj.draw(ctx); 
             drawPlayer(); 
@@ -1087,9 +1078,9 @@
         document.getElementById('menuSalir').addEventListener('click', () => { playClickSound(); window.location.href = "https://ellit.org/"; });
         
         const musicSlider = document.getElementById('musicVolume'), effectsSlider = document.getElementById('effectsVolume'), muteBtn = document.getElementById('muteAllBtn');
-        musicSlider.addEventListener('input', (e) => { musicVolume = e.target.value/100; document.getElementById('musicVolValue').innerText = e.target.value; if(!muted && bgMusicGain) bgMusicGain.gain.value = musicVolume; saveAudioPrefs(); if(currentLang === 'es') document.getElementById('musicVolLabel').innerHTML = `Volumen Música: <span id="musicVolValue">${e.target.value}</span>%`; else document.getElementById('musicVolLabel').innerHTML = `Music Volume: <span id="musicVolValue">${e.target.value}</span>%`; });
+        musicSlider.addEventListener('input', (e) => { musicVolume = e.target.value/100; document.getElementById('musicVolValue').innerText = e.target.value; if(!muted) backgroundMusic.volume = musicVolume; saveAudioPrefs(); if(currentLang === 'es') document.getElementById('musicVolLabel').innerHTML = `Volumen Música: <span id="musicVolValue">${e.target.value}</span>%`; else document.getElementById('musicVolLabel').innerHTML = `Music Volume: <span id="musicVolValue">${e.target.value}</span>%`; });
         effectsSlider.addEventListener('input', (e) => { effectsVolume = e.target.value/100; document.getElementById('effectsVolValue').innerText = e.target.value; if(!muted && effectsGain) effectsGain.gain.value = effectsVolume; clickSound.volume = muted ? 0 : effectsVolume; saveAudioPrefs(); if(currentLang === 'es') document.getElementById('effectsVolLabel').innerHTML = `Volumen Efectos: <span id="effectsVolValue">${e.target.value}</span>%`; else document.getElementById('effectsVolLabel').innerHTML = `Effects Volume: <span id="effectsVolValue">${e.target.value}</span>%`; });
-        muteBtn.addEventListener('click', () => { muted = !muted; if(bgMusicGain) bgMusicGain.gain.value = muted ? 0 : musicVolume; if(effectsGain) effectsGain.gain.value = muted ? 0 : effectsVolume; clickSound.volume = muted ? 0 : effectsVolume; saveAudioPrefs(); const t = texts[currentLang]; muteBtn.innerText = muted ? t.unmuteBtn : t.muteBtn; muteBtn.style.background = muted ? '#2d5685' : '#aa2e2e'; });
+        muteBtn.addEventListener('click', () => { muted = !muted; if(effectsGain) effectsGain.gain.value = muted ? 0 : effectsVolume; backgroundMusic.volume = muted ? 0 : musicVolume; clickSound.volume = muted ? 0 : effectsVolume; saveAudioPrefs(); const t = texts[currentLang]; muteBtn.innerText = muted ? t.unmuteBtn : t.muteBtn; muteBtn.style.background = muted ? '#2d5685' : '#aa2e2e'; });
         document.getElementById('langEs').addEventListener('click', () => { playClickSound(); setLanguage('es'); });
         document.getElementById('langEn').addEventListener('click', () => { playClickSound(); setLanguage('en'); });
         document.getElementById('closeOptionsBtn').addEventListener('click', () => { playClickSound(); document.getElementById('optionsScreen').classList.add('hidden'); document.getElementById('pixelMenu').classList.remove('hidden'); });
