@@ -6,7 +6,7 @@
     <title>Fit Frenzy - Arcade Fitness Game</title>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <style>
-        /* ========== ESTILOS (sin cambios) ========== */
+        /* ========== ESTILOS (sin cambios relevantes) ========== */
         * {
             margin: 0;
             padding: 0;
@@ -315,6 +315,29 @@
             text-align: center;
             border-radius: 10px;
         }
+        /* Estilos para el formulario de nuevo récord */
+        .new-record-form {
+            background: rgba(0,0,0,0.9);
+            border: 2px solid gold;
+            border-radius: 20px;
+            padding: 20px;
+            margin-top: 20px;
+            text-align: center;
+        }
+        .new-record-form input {
+            font-family: 'Press Start 2P', monospace;
+            padding: 10px;
+            margin: 10px;
+            background: #2a2a3a;
+            border: 1px solid #3a6ea5;
+            color: white;
+            text-align: center;
+        }
+        .new-record-form button {
+            min-width: 120px;
+            padding: 8px 16px;
+            font-size: 10px;
+        }
     </style>
 </head>
 <body>
@@ -386,15 +409,22 @@
             <div id="bestScoreLabel">🏆 MEJOR PUNTUACIÓN 🏆</div>
             <div id="recordScore" style="font-size: 1.8rem;">0</div>
             <div id="recordDetails"></div>
+            <div id="recordPlayerName" style="margin-top: 8px; font-size: 0.7rem;"></div>
         </div>
         <div id="newRecordMessage" style="display: none; background: gold; color:black; padding: 8px; border-radius: 20px; margin: 8px;">🎉 NUEVO RÉCORD 🎉</div>
+        <!-- Formulario para nombre del nuevo récord (inicialmente oculto) -->
+        <div id="newRecordForm" class="new-record-form" style="display: none;">
+            <p>¡INGRESA TU NOMBRE!</p>
+            <input type="text" id="playerNameInput" maxlength="20" placeholder="NOMBRE" autocomplete="off">
+            <button id="saveRecordBtn">GUARDAR</button>
+        </div>
         <button id="playAgainButton">JUGAR DE NUEVO</button>
         <button id="menuButton2">MENÚ PRINCIPAL</button>
     </div>
 </div>
 
 <script>
-    // ======================== SISTEMA DE SONIDOS ========================
+    // ======================== SISTEMA DE SONIDOS (sin cambios) ========================
     let clickSound = new Audio();
     clickSound.src = "sounds/Botonsound.mp3";
     clickSound.preload = "auto";
@@ -762,7 +792,7 @@
     };
     
     let fallingObjects = [], spawnCounter = 0, spawnRate = 70, gameTimer = 0, gameIntensity = 1.0, objectsPerSpawn = 1;
-    let highScore = { score: 0, intensity: 1.0, time: 0 };
+    let highScore = { score: 0, intensity: 1.0, time: 0, player_name: "---" };
     let keys = { ArrowLeft: false, ArrowRight: false };
     let nextHealthThreshold = 100;
     
@@ -890,42 +920,45 @@
     // ======================== FUNCIONES PARA BASE DE DATOS ========================
     async function loadHighScoreFromDB() {
         try {
-            const response = await fetch('get_score.php');
+            const response = await fetch('get_best_score.php');
             const data = await response.json();
             if (data.success) {
                 highScore = {
                     score: data.score,
                     intensity: data.intensity,
-                    time: data.time
+                    time: data.time,
+                    player_name: data.player_name || "---"
                 };
             } else {
-                highScore = { score: 0, intensity: 1.0, time: 0 };
+                highScore = { score: 0, intensity: 1.0, time: 0, player_name: "---" };
             }
             // Actualizar UI del récord (si está visible)
             document.getElementById('recordScore').textContent = highScore.score;
             let recMins = Math.floor(highScore.time / 60), recSecs = highScore.time % 60;
             document.getElementById('recordDetails').innerHTML = `Intensidad: ${highScore.intensity.toFixed(1)}x | Tiempo: ${recMins.toString().padStart(2,'0')}:${recSecs.toString().padStart(2,'0')}`;
+            document.getElementById('recordPlayerName').innerHTML = `👑 ${highScore.player_name} 👑`;
         } catch (error) {
             console.error("Error cargando récord desde BD:", error);
-            highScore = { score: 0, intensity: 1.0, time: 0 };
+            highScore = { score: 0, intensity: 1.0, time: 0, player_name: "---" };
         }
     }
     
-    async function saveHighScoreToDB(score, intensity, timeSec) {
+    async function saveHighScoreToDB(name, score, intensity, timeSec) {
         try {
-            const response = await fetch('save_score.php', {
+            const response = await fetch('update_best_score.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ score: score, intensity: intensity, time: timeSec })
+                body: JSON.stringify({ player_name: name, score: score, intensity: intensity, time: timeSec })
             });
             const data = await response.json();
-            if (data.success && data.isNewRecord) {
-                // Actualizar la variable global highScore
-                highScore = { score: score, intensity: intensity, time: timeSec };
-                // Actualizar la UI principal del récord (no la de Game Over)
+            if (data.success) {
+                // Actualizar variable local
+                highScore = { score: score, intensity: intensity, time: timeSec, player_name: name };
+                // Actualizar UI principal
                 document.getElementById('recordScore').textContent = highScore.score;
                 let recMins = Math.floor(highScore.time / 60), recSecs = highScore.time % 60;
                 document.getElementById('recordDetails').innerHTML = `Intensidad: ${highScore.intensity.toFixed(1)}x | Tiempo: ${recMins.toString().padStart(2,'0')}:${recSecs.toString().padStart(2,'0')}`;
+                document.getElementById('recordPlayerName').innerHTML = `👑 ${highScore.player_name} 👑`;
                 return true;
             }
             return false;
@@ -935,7 +968,10 @@
         }
     }
     
-    // ======================== GAME OVER CORREGIDO ========================
+    // ======================== GAME OVER CON NOMBRE ========================
+    let pendingNewRecord = false;
+    let finalScoreData = null;
+    
     async function gameOver() {
         gameState = 'gameover';
         playGameOverSound();
@@ -943,29 +979,63 @@
         const finalIntensity = gameIntensity;
         const finalTimeSec = Math.floor(gameTimer / 60);
         
+        finalScoreData = { score: finalScore, intensity: finalIntensity, time: finalTimeSec };
+        
         // Mostrar la puntuación actual en la pantalla
         document.getElementById('finalScore').textContent = finalScore;
         document.getElementById('finalIntensity').textContent = finalIntensity.toFixed(1) + 'x';
         let mins = Math.floor(finalTimeSec / 60), secs = finalTimeSec % 60;
         document.getElementById('finalTime').textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
         
-        // Verificar si es nuevo récord y guardar en BD
-        let isNew = false;
-        if (finalScore > highScore.score) {
-            isNew = await saveHighScoreToDB(finalScore, finalIntensity, finalTimeSec);
+        // Verificar si es nuevo récord (comparar con highScore cargado desde BD)
+        const isNewRecord = finalScore > highScore.score;
+        
+        if (isNewRecord) {
+            // Mostrar el formulario para ingresar nombre
+            document.getElementById('newRecordMessage').style.display = 'block';
+            document.getElementById('newRecordForm').style.display = 'block';
+            // Deshabilitar botones de reinicio/menú hasta que se guarde
+            document.getElementById('playAgainButton').disabled = true;
+            document.getElementById('menuButton2').disabled = true;
+            pendingNewRecord = true;
+        } else {
+            document.getElementById('newRecordMessage').style.display = 'none';
+            document.getElementById('newRecordForm').style.display = 'none';
+            document.getElementById('playAgainButton').disabled = false;
+            document.getElementById('menuButton2').disabled = false;
         }
         
-        // Actualizar la UI del récord en la pantalla de Game Over con el valor más reciente de highScore
+        // Actualizar la UI del récord con el mejor actual (puede ser el mismo o el anterior)
         document.getElementById('recordScore').textContent = highScore.score;
         let recMins = Math.floor(highScore.time / 60), recSecs = highScore.time % 60;
         document.getElementById('recordDetails').innerHTML = `Intensidad: ${highScore.intensity.toFixed(1)}x | Tiempo: ${recMins.toString().padStart(2, '0')}:${recSecs.toString().padStart(2, '0')}`;
-        document.getElementById('newRecordMessage').style.display = isNew ? 'block' : 'none';
+        document.getElementById('recordPlayerName').innerHTML = `👑 ${highScore.player_name} 👑`;
         
-        // Mostrar la pantalla
         document.getElementById('gameOverScreen').classList.remove('hidden');
         uiContainer.style.display = 'none';
         canvas.style.display = 'none';
     }
+    
+    // Evento para guardar el récord con nombre
+    document.getElementById('saveRecordBtn').addEventListener('click', async () => {
+        if (!pendingNewRecord || !finalScoreData) return;
+        const playerName = document.getElementById('playerNameInput').value.trim();
+        if (playerName === "") {
+            alert("Por favor ingresa tu nombre");
+            return;
+        }
+        // Guardar en BD
+        await saveHighScoreToDB(playerName, finalScoreData.score, finalScoreData.intensity, finalScoreData.time);
+        // Ocultar formulario y mostrar mensaje de éxito
+        document.getElementById('newRecordForm').style.display = 'none';
+        document.getElementById('newRecordMessage').style.display = 'block';
+        document.getElementById('newRecordMessage').innerHTML = "🎉 RÉCORD GUARDADO 🎉";
+        // Rehabilitar botones
+        document.getElementById('playAgainButton').disabled = false;
+        document.getElementById('menuButton2').disabled = false;
+        pendingNewRecord = false;
+    });
+    
     // Sobrescribir la función global
     window.gameOver = gameOver;
     
@@ -1058,6 +1128,69 @@
         } 
     }
     
+    // ======================== CONTROL TÁCTIL ========================
+    function initTouchControls() {
+        const canvasElem = canvas;
+        function handleTouch(e) {
+            if(gameState !== 'playing') return;
+            e.preventDefault();
+            const rect = canvasElem.getBoundingClientRect();
+            const scaleX = gameWidth / rect.width;
+            if(e.touches.length > 0) {
+                let canvasX = (e.touches[0].clientX - rect.left) * scaleX;
+                canvasX = Math.min(Math.max(canvasX, 0), gameWidth);
+                if(canvasX < gameWidth/2) { keys.ArrowLeft = true; keys.ArrowRight = false; }
+                else { keys.ArrowLeft = false; keys.ArrowRight = true; }
+            }
+        }
+        function handleTouchEnd(e) { if(gameState !== 'playing') return; e.preventDefault(); keys.ArrowLeft = false; keys.ArrowRight = false; }
+        canvasElem.addEventListener('touchstart', handleTouch, { passive: false });
+        canvasElem.addEventListener('touchmove', handleTouch, { passive: false });
+        canvasElem.addEventListener('touchend', handleTouchEnd);
+        canvasElem.addEventListener('touchcancel', handleTouchEnd);
+    }
+    
+    // ======================== LLUVIA DE COMIDA EN EL MENÚ ========================
+    let rainInterval = null;
+    function createFoodElement(food) {
+        const div = document.createElement('div');
+        div.className = 'food-rain';
+        const size = 45 + Math.random() * 25;
+        div.style.width = `${size}px`;
+        div.style.height = `${size}px`;
+        div.style.left = Math.random() * 100 + '%';
+        const duration = 3 + Math.random() * 4;
+        div.style.animationDuration = `${duration}s`;
+        div.style.animationDelay = `0s`;
+        const img = document.createElement('img');
+        img.src = food.img;
+        img.style.width = '100%';
+        img.style.height = '100%';
+        img.style.objectFit = 'contain';
+        div.appendChild(img);
+        return div;
+    }
+    function startRainEffect() {
+        const menuDiv = document.getElementById('pixelMenu');
+        const existingRain = menuDiv.querySelectorAll('.food-rain');
+        existingRain.forEach(el => el.remove());
+        for(let i = 0; i < 15; i++) {
+            const randomFood = ALL_FOODS[Math.floor(Math.random() * ALL_FOODS.length)];
+            const foodElement = createFoodElement(randomFood);
+            menuDiv.appendChild(foodElement);
+        }
+        if(rainInterval) clearInterval(rainInterval);
+        rainInterval = setInterval(() => {
+            if(gameState === 'menu') {
+                const randomFood = ALL_FOODS[Math.floor(Math.random() * ALL_FOODS.length)];
+                const newFood = createFoodElement(randomFood);
+                document.getElementById('pixelMenu').appendChild(newFood);
+                const allItems = document.querySelectorAll('.food-rain');
+                if(allItems.length > 80) allItems[0].remove();
+            }
+        }, 400);
+    }
+    
     // ======================== INICIALIZACIÓN ========================
     async function init() {
         const loader = document.createElement('div');
@@ -1104,67 +1237,6 @@
         
         function animate() { updateGame(); draw(); requestAnimationFrame(animate); }
         animate();
-    }
-    
-    function initTouchControls() {
-        const canvasElem = canvas;
-        function handleTouch(e) {
-            if(gameState !== 'playing') return;
-            e.preventDefault();
-            const rect = canvasElem.getBoundingClientRect();
-            const scaleX = gameWidth / rect.width;
-            if(e.touches.length > 0) {
-                let canvasX = (e.touches[0].clientX - rect.left) * scaleX;
-                canvasX = Math.min(Math.max(canvasX, 0), gameWidth);
-                if(canvasX < gameWidth/2) { keys.ArrowLeft = true; keys.ArrowRight = false; }
-                else { keys.ArrowLeft = false; keys.ArrowRight = true; }
-            }
-        }
-        function handleTouchEnd(e) { if(gameState !== 'playing') return; e.preventDefault(); keys.ArrowLeft = false; keys.ArrowRight = false; }
-        canvasElem.addEventListener('touchstart', handleTouch, { passive: false });
-        canvasElem.addEventListener('touchmove', handleTouch, { passive: false });
-        canvasElem.addEventListener('touchend', handleTouchEnd);
-        canvasElem.addEventListener('touchcancel', handleTouchEnd);
-    }
-    
-    let rainInterval = null;
-    function createFoodElement(food) {
-        const div = document.createElement('div');
-        div.className = 'food-rain';
-        const size = 45 + Math.random() * 25;
-        div.style.width = `${size}px`;
-        div.style.height = `${size}px`;
-        div.style.left = Math.random() * 100 + '%';
-        const duration = 3 + Math.random() * 4;
-        div.style.animationDuration = `${duration}s`;
-        div.style.animationDelay = `0s`;
-        const img = document.createElement('img');
-        img.src = food.img;
-        img.style.width = '100%';
-        img.style.height = '100%';
-        img.style.objectFit = 'contain';
-        div.appendChild(img);
-        return div;
-    }
-    function startRainEffect() {
-        const menuDiv = document.getElementById('pixelMenu');
-        const existingRain = menuDiv.querySelectorAll('.food-rain');
-        existingRain.forEach(el => el.remove());
-        for(let i = 0; i < 15; i++) {
-            const randomFood = ALL_FOODS[Math.floor(Math.random() * ALL_FOODS.length)];
-            const foodElement = createFoodElement(randomFood);
-            menuDiv.appendChild(foodElement);
-        }
-        if(rainInterval) clearInterval(rainInterval);
-        rainInterval = setInterval(() => {
-            if(gameState === 'menu') {
-                const randomFood = ALL_FOODS[Math.floor(Math.random() * ALL_FOODS.length)];
-                const newFood = createFoodElement(randomFood);
-                document.getElementById('pixelMenu').appendChild(newFood);
-                const allItems = document.querySelectorAll('.food-rain');
-                if(allItems.length > 80) allItems[0].remove();
-            }
-        }, 400);
     }
     
     init();
