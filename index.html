@@ -636,7 +636,7 @@
             playerStaticImg = new Image();
             playerStaticImg.onload = () => resolve(true);
             playerStaticImg.onerror = () => {
-                console.warn("No se pudo cargar la imagen del jugador (img/lobo comiendo7.png). Se usará rectángulo de respaldo.");
+                console.warn("No se pudo cargar la imagen del jugador (img/lobo comiendo9.png). Se usará rectángulo de respaldo.");
                 resolve(false);
             };
             playerStaticImg.src = "img/lobo comiendo9.png";
@@ -724,7 +724,7 @@
     // ======================== VARIABLES DEL JUEGO ========================
     let gameState = 'menu';
     let player = {
-        x: 0, y: 0, width: 140, height: 140, speed: 7, score: 0, health: 100, maxHealth: 100,
+        x: 0, y: 0, width: 120, height: 120, speed: 7, score: 0, health: 100, maxHealth: 100,
         move(dir) {
             let step = this.speed;
             if(dir === 'left') this.x -= step;
