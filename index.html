@@ -762,7 +762,7 @@
     };
     
     let fallingObjects = [], spawnCounter = 0, spawnRate = 70, gameTimer = 0, gameIntensity = 1.0, objectsPerSpawn = 1;
-    let highScore = { score: 0, intensity: 1.0, time: 0 }; // se cargará desde BD al iniciar
+    let highScore = { score: 0, intensity: 1.0, time: 0 };
     let keys = { ArrowLeft: false, ArrowRight: false };
     let nextHealthThreshold = 100;
     
@@ -901,7 +901,7 @@
             } else {
                 highScore = { score: 0, intensity: 1.0, time: 0 };
             }
-            // Actualizar UI del récord
+            // Actualizar UI del récord (si está visible)
             document.getElementById('recordScore').textContent = highScore.score;
             let recMins = Math.floor(highScore.time / 60), recSecs = highScore.time % 60;
             document.getElementById('recordDetails').innerHTML = `Intensidad: ${highScore.intensity.toFixed(1)}x | Tiempo: ${recMins.toString().padStart(2,'0')}:${recSecs.toString().padStart(2,'0')}`;
@@ -920,8 +920,9 @@
             });
             const data = await response.json();
             if (data.success && data.isNewRecord) {
-                // Actualizar variable local y UI
+                // Actualizar la variable global highScore
                 highScore = { score: score, intensity: intensity, time: timeSec };
+                // Actualizar la UI principal del récord (no la de Game Over)
                 document.getElementById('recordScore').textContent = highScore.score;
                 let recMins = Math.floor(highScore.time / 60), recSecs = highScore.time % 60;
                 document.getElementById('recordDetails').innerHTML = `Intensidad: ${highScore.intensity.toFixed(1)}x | Tiempo: ${recMins.toString().padStart(2,'0')}:${recSecs.toString().padStart(2,'0')}`;
@@ -934,34 +935,33 @@
         }
     }
     
-    // Modificar gameOver para que use BD
-    const originalGameOver = gameOver; // no se usa, redefinimos
-    function gameOver() {
+    // ======================== GAME OVER CORREGIDO ========================
+    async function gameOver() {
         gameState = 'gameover';
         playGameOverSound();
-        const finalScore = player.score, finalIntensity = gameIntensity, finalTimeSec = Math.floor(gameTimer/60);
-        document.getElementById('finalScore').textContent = finalScore;
-        document.getElementById('finalIntensity').textContent = finalIntensity.toFixed(1)+'x';
-        let mins = Math.floor(finalTimeSec/60), secs = finalTimeSec%60;
-        document.getElementById('finalTime').textContent = `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
+        const finalScore = player.score;
+        const finalIntensity = gameIntensity;
+        const finalTimeSec = Math.floor(gameTimer / 60);
         
-        // Verificar si es nuevo récord comparando con highScore actual (desde BD)
+        // Mostrar la puntuación actual en la pantalla
+        document.getElementById('finalScore').textContent = finalScore;
+        document.getElementById('finalIntensity').textContent = finalIntensity.toFixed(1) + 'x';
+        let mins = Math.floor(finalTimeSec / 60), secs = finalTimeSec % 60;
+        document.getElementById('finalTime').textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        
+        // Verificar si es nuevo récord y guardar en BD
+        let isNew = false;
         if (finalScore > highScore.score) {
-            saveHighScoreToDB(finalScore, finalIntensity, finalTimeSec).then(isNew => {
-                if (isNew) {
-                    document.getElementById('newRecordMessage').style.display = 'block';
-                } else {
-                    document.getElementById('newRecordMessage').style.display = 'none';
-                }
-            });
-        } else {
-            document.getElementById('newRecordMessage').style.display = 'none';
+            isNew = await saveHighScoreToDB(finalScore, finalIntensity, finalTimeSec);
         }
         
-        // Mostrar el récord actual (puede haberse actualizado)
+        // Actualizar la UI del récord en la pantalla de Game Over con el valor más reciente de highScore
         document.getElementById('recordScore').textContent = highScore.score;
-        let recMins = Math.floor(highScore.time/60), recSecs = highScore.time%60;
-        document.getElementById('recordDetails').innerHTML = `Intensidad: ${highScore.intensity.toFixed(1)}x | Tiempo: ${recMins.toString().padStart(2,'0')}:${recSecs.toString().padStart(2,'0')}`;
+        let recMins = Math.floor(highScore.time / 60), recSecs = highScore.time % 60;
+        document.getElementById('recordDetails').innerHTML = `Intensidad: ${highScore.intensity.toFixed(1)}x | Tiempo: ${recMins.toString().padStart(2, '0')}:${recSecs.toString().padStart(2, '0')}`;
+        document.getElementById('newRecordMessage').style.display = isNew ? 'block' : 'none';
+        
+        // Mostrar la pantalla
         document.getElementById('gameOverScreen').classList.remove('hidden');
         uiContainer.style.display = 'none';
         canvas.style.display = 'none';
