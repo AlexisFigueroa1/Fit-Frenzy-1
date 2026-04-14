@@ -401,14 +401,14 @@
     let effectsVolume = 0.5;
     let muted = false;
     
-    let audioCtx = null, bgMusicGain = null, isAudioAllowed = false;
-    let musicVolume = 0.5;
-    let menuMusicActive = false;
-    
-    // ===== NUEVA MÚSICA DE FONDO MP3 =====
+    // Música de fondo MP3
     let backgroundMusic = new Audio("sounds/musica de fondo.mp3");
     backgroundMusic.loop = true;
     backgroundMusic.preload = "auto";
+    
+    let audioCtx = null, bgMusicGain = null, isAudioAllowed = false;
+    let musicVolume = 0.5;
+    let menuMusicActive = false;
     
     function loadAudioPrefs() {
         try {
@@ -430,7 +430,6 @@
                 document.getElementById('muteAllBtn').style.background = '#aa2e2e';
             }
             clickSound.volume = muted ? 0 : effectsVolume;
-            // Aplicar volumen a la música de fondo
             backgroundMusic.volume = muted ? 0 : musicVolume;
         } catch(e) {}
     }
@@ -438,6 +437,7 @@
         localStorage.setItem('fitFrenzy_musicVol', musicVolume);
         localStorage.setItem('fitFrenzy_effectsVol', effectsVolume);
         localStorage.setItem('fitFrenzy_muted', muted);
+        if (bgMusicGain) bgMusicGain.gain.value = muted ? 0 : musicVolume;
         clickSound.volume = muted ? 0 : effectsVolume;
         backgroundMusic.volume = muted ? 0 : musicVolume;
     }
@@ -546,7 +546,6 @@
         menuMusicActive = false;
     }
     
-    // Inicializar Web Audio solo para efectos
     let effectsGain = null;
     function initAudio() {
         if (audioCtx) return;
@@ -642,7 +641,7 @@
                 console.warn("No se pudo cargar la imagen de fondo (img/fondo4.png). Se usará el fondo original.");
                 resolve(false);
             };
-            backgroundImg.src = "img/fondo4.png";
+            backgroundImg.src = "img/fondo4.png"; // Cambia esta ruta si tu imagen tiene otro nombre
         });
         promises.push(playerImgPromise);
         promises.push(backgroundPromise);
@@ -724,6 +723,7 @@
             if(dir === 'right') this.x += step;
             this.x = Math.max(0, Math.min(gameWidth - this.width, this.x));
         },
+        // Hitbox precisa con porcentajes relativos al tamaño del sprite
         getBounds() {
             const widthPercent = 0.55;
             const heightPercent = 0.6;
@@ -898,7 +898,6 @@
         document.getElementById('gameOverScreen').classList.remove('hidden');
         uiContainer.style.display = 'none';
         canvas.style.display = 'none';
-        // Opcional: no detener la música de fondo al game over
     }
     
     function resetGame() { 
@@ -919,7 +918,7 @@
         resetGame();
         gameState = 'playing';
         playStartSound();
-        // La música de fondo continúa sonando, no la detenemos
+        // NO detenemos la música de fondo
         document.getElementById('pixelMenu').classList.add('hidden');
         canvas.style.display = 'block';
         uiContainer.style.display = 'flex';
@@ -982,7 +981,9 @@
     
     function draw() { 
         if(gameState === 'playing') { 
+            // LIMPIAR COMPLETAMENTE EL CANVAS ANTES DE DIBUJAR CADA FRAME
             ctx.clearRect(0, 0, gameWidth, gameHeight);
+            
             drawBackground(); 
             for(let obj of fallingObjects) obj.draw(ctx); 
             drawPlayer(); 
